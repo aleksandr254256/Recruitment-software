@@ -1,0 +1,2436 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Отдел подбора персонала ·</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --ink:#16232F;
+  --ink-soft:#4C5C68;
+  --paper:#F4F5F1;
+  --paper-raised:#FFFFFF;
+  --line:#D8DCD3;
+  --line-strong:#B9C0B6;
+  --blueprint:#00458E;      /* Veles blue — Pantone 287C */
+  --blueprint-soft:#DCE7F3;
+  --amber:#E77817;          /* Veles orange — Pantone 151C */
+  --amber-soft:#FDE9D8;
+  --ok:#3F8D1F;             /* Veles green (доп. палитра для мультимедиа) — Pantone 370C */
+  --ok-soft:#E3F0DC;
+  --warn:#FB0800;           /* Veles red (доп. палитра для мультимедиа) — Pantone 179C */
+  --warn-soft:#FDE1DF;
+  --silver:#AAA9A9;         /* Veles silver — Pantone 877C / RAL 9006 */
+  --radius:3px;
+  --font-ui:'Verdana',system-ui,-apple-system,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--font-ui);
+  font-size:14px;
+  line-height:1.5;
+  min-height:100vh;
+}
+.wrap{max-width:1280px;margin:0 auto;padding:0 20px 60px;}
+
+/* ---------- header ---------- */
+header.top{
+  background:var(--ink);
+  color:#EDEFEA;
+  padding:22px 0;
+  margin-bottom:22px;
+  position:relative;
+}
+header.top .wrap{display:flex; align-items:flex-end; justify-content:space-between; gap:24px; position:relative;}
+header.top h1{
+  font-size:21px; font-weight:800; letter-spacing:.2px; margin:0 0 4px;
+}
+header.top .sub{color:#AFC0CC; font-size:12.5px; font-family:var(--font-mono);}
+.stamp{
+  border:1px solid rgba(237,239,234,.35);
+  padding:6px 12px;
+  font-family:var(--font-mono);
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  color:#AFC0CC;
+  white-space:nowrap;
+}
+.stamp b{color:var(--amber); font-weight:700;}
+
+/* ---------- upload ---------- */
+.upload-grid{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:22px;}
+@media (max-width:760px){.upload-grid{grid-template-columns:1fr;}}
+.upload-card{
+  background:var(--paper-raised);
+  border:1px dashed var(--line-strong);
+  border-radius:var(--radius);
+  padding:16px 18px;
+  transition:border-color .15s ease, background .15s ease;
+}
+.upload-card.loaded{border-style:solid; border-color:var(--ok);}
+.upload-card .row{display:flex; align-items:center; justify-content:space-between; gap:12px;}
+.upload-card .label{font-weight:700; font-size:13px;}
+.upload-card .tag{
+  font-family:var(--font-mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.06em;
+  color:var(--ink-soft); background:var(--blueprint-soft); padding:2px 7px; border-radius:2px;
+}
+.upload-card .tag.req{color:var(--warn); background:var(--warn-soft);}
+.upload-card p.hint{margin:6px 0 12px; color:var(--ink-soft); font-size:12.5px;}
+.upload-card input[type=file]{
+  width:100%; font-size:12.5px; font-family:var(--font-ui);
+}
+.upload-card .status{margin-top:10px; font-family:var(--font-mono); font-size:12px; color:var(--ok);}
+.upload-card .status.empty{color:var(--ink-soft);}
+
+/* ---------- filters ---------- */
+.filters{
+  background:var(--paper-raised);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:14px 16px;
+  margin-bottom:18px;
+  display:flex; flex-wrap:wrap; gap:20px; align-items:flex-end;
+  position:sticky; top:10px; z-index:20;
+  box-shadow:0 2px 10px rgba(22,35,47,.06);
+}
+.filter-group{
+  display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end;
+  padding-right:20px;
+  border-right:1px solid var(--line);
+}
+.filter-group:last-of-type{border-right:none; padding-right:0;}
+.field{display:flex; flex-direction:column; gap:5px; min-width:150px;}
+.field label{font-size:10.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-soft); font-weight:600;}
+.field select, .field input[type=text], .field input[type=number]{
+  border:1px solid var(--line-strong);
+  border-radius:2px;
+  padding:7px 9px;
+  font-family:var(--font-ui);
+  font-size:13px;
+  background:var(--paper-raised);
+  color:var(--ink);
+  min-width:150px;
+}
+.field select:focus, .field input:focus{outline:2px solid var(--blueprint); outline-offset:1px;}
+.reset-btn{
+  border:1px solid var(--line-strong); background:var(--paper);
+  padding:7px 12px; font-size:12.5px; border-radius:2px; cursor:pointer; color:var(--ink-soft);
+  font-family:var(--font-ui); font-weight:600;
+}
+.reset-btn:hover{background:var(--line);}
+
+/* ---------- tabs ---------- */
+.tabs{display:flex; gap:2px; margin-bottom:18px; border-bottom:2px solid var(--line);}
+.tab-btn{
+  font-family:var(--font-ui); font-weight:700; font-size:13.5px;
+  padding:10px 18px; background:none; border:none; cursor:pointer;
+  color:var(--ink-soft); border-bottom:3px solid transparent; margin-bottom:-2px;
+}
+.tab-btn.active{color:var(--blueprint); border-bottom-color:var(--amber);}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;}
+
+/* ---------- cards / metrics ---------- */
+.metric-row{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin-bottom:20px;}
+.metric{
+  background:var(--paper-raised); border:1px solid var(--line); border-radius:var(--radius);
+  padding:14px 16px; position:relative;
+}
+.metric .num{font-family:var(--font-mono); font-size:30px; font-weight:700; color:var(--blueprint); line-height:1;}
+.metric .lbl{font-size:12px; color:var(--ink-soft); margin-top:6px;}
+.metric.amber .num{color:var(--amber);}
+.metric.ok .num{color:var(--ok);}
+.metric.warn .num{color:var(--warn);}
+.metric.warn{border-color:var(--warn);}
+.metric.blue .num{color:var(--blueprint);}
+.ring-metric{display:flex; align-items:center; gap:16px;}
+.ring-metric .lbl{margin-top:0; font-size:12.5px; line-height:1.4;}
+.metric-row-compact .metric{padding:7px 16px;}
+.metric-row-compact .num{font-size:20px;}
+.metric-row-compact .lbl{margin-top:2px;}
+.delta-lbl{font-family:var(--font-mono); font-size:11px; font-weight:700; margin-top:3px; min-height:14px;}
+.delta-lbl.up{color:var(--ok);}
+.delta-lbl.zero{color:var(--ink-soft); font-weight:400;}
+.dynamics-banner{
+  display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;
+  background:var(--paper-raised); border:1px solid var(--line); border-left:3px solid var(--blueprint); border-radius:var(--radius);
+  padding:10px 18px; margin-bottom:20px;
+}
+.dynamics-title{font-size:12.5px; color:var(--ink-soft); font-weight:600;}
+.dynamics-title #dash-week-label{font-family:var(--font-mono); font-weight:400;}
+.dynamics-values{font-family:var(--font-mono); font-size:16px; font-weight:700;}
+.dynamics-values .dyn-open{color:var(--warn);}
+.dynamics-values .dyn-closed{color:var(--ok);}
+.dynamics-values .dyn-sep{color:var(--line-strong); margin:0 10px; font-weight:400;}
+
+section.block{
+  background:var(--paper-raised); border:1px solid var(--line); border-radius:var(--radius);
+  margin-bottom:20px; overflow:hidden;
+}
+section.block.group-start{ margin-top:16px; }
+section.block > .head{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:12px 16px; border-bottom:1px solid var(--line); background:var(--blueprint);
+}
+section.block > .head h2{margin:0; font-size:14px; font-weight:700; color:#fff;}
+section.block > .head .count{font-family:var(--font-mono); font-size:12px; color:#fff; opacity:.85;}
+.head-stat{display:flex; align-items:baseline; gap:6px;}
+.head-stat-num{font-family:var(--font-mono); font-size:19px; font-weight:700; color:var(--amber);}
+.head-stat-lbl{font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:#fff; opacity:.9;}
+
+/* details.block — сворачиваемые секции: тот же вид, что у section.block, но кликабельный заголовок */
+details.block{
+  background:var(--paper-raised); border:1px solid var(--line); border-radius:var(--radius);
+  margin-bottom:20px; overflow:hidden;
+}
+details.block > summary{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:12px 16px; border-bottom:1px solid var(--line); background:var(--blueprint);
+  cursor:pointer; list-style:none; user-select:none;
+}
+details.block > summary::-webkit-details-marker{ display:none; }
+details.block > summary::before{
+  content:"▸"; color:#fff; font-size:12px; margin-right:4px; flex-shrink:0;
+  transition:transform .15s ease;
+}
+details.block[open] > summary::before{ transform:rotate(90deg); }
+details.block > summary h2{margin:0; font-size:14px; font-weight:700; color:#fff; flex:1;}
+details.block > summary .count{font-family:var(--font-mono); font-size:12px; color:#fff; opacity:.85;}
+details.block:not([open]) > summary{ border-bottom:none; }
+.table-scroll{max-height:480px; overflow:auto;}
+table{width:100%; border-collapse:collapse; font-size:12.5px;}
+thead th{
+  position:sticky; top:0; background:var(--blueprint); text-align:left; padding:8px 10px;
+  font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:#fff; font-family:var(--font-ui);
+  border-bottom:1px solid var(--line-strong); white-space:nowrap;
+}
+tbody td{padding:7px 10px; border-bottom:1px solid var(--line); white-space:nowrap;}
+tbody tr:hover{background:var(--paper);}
+th.sortable{cursor:pointer; user-select:none;}
+th.sortable:hover{color:var(--amber);}
+tfoot td{position:sticky; bottom:0; background:var(--blueprint-soft); border-top:2px solid var(--line-strong);}
+td.num, th.num{font-family:var(--font-mono); text-align:right;}
+.badge{
+  display:inline-block; padding:2px 7px; border-radius:2px; font-size:11px; font-weight:600;
+  font-family:var(--font-mono);
+}
+.badge.ok{background:var(--ok-soft); color:var(--ok);}
+.badge.amber{background:var(--amber-soft); color:var(--amber);}
+.badge.warn{background:var(--warn-soft); color:var(--warn);}
+.badge.blue{background:var(--blueprint-soft); color:var(--blueprint);}
+.empty-state{padding:30px 16px; text-align:center; color:var(--ink-soft); font-size:13px;}
+.empty-state b{color:var(--ink);}
+
+.pivot-table td, .pivot-table th{text-align:center;}
+.pivot-table td.rowlabel, .pivot-table th.rowlabel{text-align:left; font-weight:600; background:#FAFAF7; color:var(--ink); position:sticky; left:0;}
+
+footer.note{margin-top:26px; font-size:11.5px; color:var(--ink-soft); font-family:var(--font-mono); text-align:center;}
+
+@media print{
+  .upload-grid, .filters, .tabs, #print-btn, .reset-btn, footer.note, #pivot-modal{display:none !important;}
+  body{background:#fff;}
+  .table-scroll{max-height:none !important; overflow:visible !important;}
+  section.block, details.block{break-inside:avoid; box-shadow:none;}
+  thead th{position:static;}
+  tfoot td{position:static;}
+  .tab-panel{display:none !important;}
+  .tab-panel.active{display:block !important;}
+  details.block > *{ display:block !important; } /* печатаем развёрнутыми, независимо от [open] на экране */
+  details.block > summary{ cursor:default; }
+  details.block > summary::before{ display:none; }
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div style="display:flex; align-items:center; gap:14px;">
+      <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true">
+        <circle cx="20" cy="20" r="19" fill="var(--amber)"/>
+        <path d="M20 9 C24 15 27 19 27 23.5 C27 28.2 23.9 31 20 31 C16.1 31 13 28.2 13 23.5 C13 19 16 15 20 9 Z" fill="#FFFFFF"/>
+      </svg>
+      <div>
+        <h1>Отдел подбора персонала</h1>
+        <div class="sub">Велесстрой-СМУ</div>
+      </div>
+    </div>
+    <div class="stamp" id="stamp">Данные не загружены</div>
+    <button class="reset-btn" id="print-btn" style="display:none; background:transparent; color:#EDEFEA; border-color:rgba(237,239,234,.35);">Печать / PDF</button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="upload-grid">
+    <div class="upload-card" id="card-collection">
+      <div class="row">
+        <span class="label">Файл «Сбор данных»</span>
+        <span class="tag req">обязателен</span>
+      </div>
+      <p class="hint">Основной лог кандидатов. Используется для «В работе», сводной таблицы и еженедельной сводки.</p>
+      <input type="file" id="file-collection" accept=".csv">
+      <div class="status empty" id="status-collection">Файл не выбран</div>
+    </div>
+    <div class="upload-card" id="card-report">
+      <div class="row">
+        <span class="label">Файл «Отчет»</span>
+        <span class="tag">для листа «Заявки»</span>
+      </div>
+      <p class="hint">Свод по заявкам заказчика. Используется только для списка открытых заявок.</p>
+      <input type="file" id="file-report" accept=".csv">
+      <div class="status empty" id="status-report">Файл не выбран</div>
+    </div>
+  </div>
+
+  <div class="filters" id="filters" style="display:none;">
+    <div class="filter-group">
+      <div class="field" style="min-width:110px;">
+        <label>Период</label>
+        <select id="period-type">
+          <option value="week">Неделя</option>
+          <option value="day">День</option>
+          <option value="month">Месяц</option>
+          <option value="all">Все</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Год</label>
+        <select id="f-year"><option value="">Все</option></select>
+      </div>
+      <div class="field" id="period-month-field" style="display:none; min-width:150px;">
+        <label>Месяц</label>
+        <select id="period-month"></select>
+      </div>
+      <div class="field" id="period-week-field" style="min-width:130px;">
+        <label>Неделя (КН)</label>
+        <select id="period-week"></select>
+      </div>
+      <div class="field" id="period-day-field" style="display:none;">
+        <label>Дата</label>
+        <input type="date" id="period-day">
+      </div>
+    </div>
+
+    <div class="filter-group">
+      <div class="field">
+        <label>ОП</label>
+        <select id="f-op"><option value="">Все</option></select>
+      </div>
+      <div class="field">
+        <label>Проект</label>
+        <select id="f-project"><option value="">Все</option></select>
+      </div>
+      <div class="field">
+        <label>Вид / участок</label>
+        <select id="f-vid"><option value="">Все</option></select>
+      </div>
+      <div class="field" style="min-width:200px;">
+        <label>Должность (поиск)</label>
+        <input type="text" id="f-position" placeholder="например: монтажник">
+      </div>
+      <div class="field">
+        <label>Категория</label>
+        <select id="f-category"><option value="">Все</option></select>
+      </div>
+    </div>
+
+    <div class="filter-group">
+      <div class="field">
+        <label>Рекрутер</label>
+        <select id="f-recruiter"><option value="">Все</option></select>
+      </div>
+    </div>
+
+    <button class="reset-btn" id="reset-filters">Сбросить фильтры</button>
+  </div>
+
+  <div class="tabs" id="tabs" style="display:none;">
+    <button class="tab-btn active" data-tab="dashboard">Дашборд</button>
+    <button class="tab-btn" data-tab="weekly">Сводка за период</button>
+    <button class="tab-btn" data-tab="operational">Оперативный отчёт</button>
+    <button class="tab-btn" data-tab="refusals">Отказы</button>
+    <button class="tab-btn" data-tab="stale">Заявки на контроле</button>
+    <button class="tab-btn" data-tab="recruiters">Рекрутеры</button>
+    <button class="tab-btn" data-tab="help">Как пользоваться</button>
+  </div>
+
+  <div id="empty-placeholder" class="empty-state" style="padding:60px 16px;">
+    Загрузите файл <b>«Сбор данных»</b>, чтобы начать. Файл «Отчет» нужен только для вкладки «Заявки».
+  </div>
+
+  <!-- ОПЕРАТИВНЫЙ ОТЧЁТ -->
+  <div class="tab-panel" id="tab-operational">
+
+    <section class="block" id="block-zayavki">
+      <div class="head"><h2>Заявки (открытые)</h2><div style="display:flex; align-items:center; gap:10px;"><span class="count" id="cnt-zayavki"></span><button class="reset-btn" id="export-zayavki-btn" style="padding:4px 10px; font-size:11.5px;">Экспорт в Excel</button></div></div>
+      <div class="table-scroll"><table id="tbl-zayavki"></table></div>
+    </section>
+
+    <section class="block">
+      <div class="head"><h2>В работе</h2><div style="display:flex; align-items:center; gap:10px;"><span class="count" id="cnt-vrabote"></span><button class="reset-btn" id="export-vrabote-btn" style="padding:4px 10px; font-size:11.5px;">Экспорт в Excel</button></div></div>
+      <div class="table-scroll"><table id="tbl-vrabote"></table></div>
+    </section>
+
+    <section class="block">
+      <div class="head"><h2>В работе — по ОП</h2><span class="count" id="cnt-chart-op"></span></div>
+      <div id="chart-op" style="padding:16px;"></div>
+    </section>
+
+    <section class="block">
+      <div class="head">
+        <h2>Готовность к выезду: Должность × Неделя (горизонт 1 месяц)</h2>
+        <span class="count" id="cnt-pivot"></span>
+      </div>
+      <p style="margin:0; padding:8px 16px; font-size:12px; color:var(--ink-soft); border-bottom:1px solid var(--line);">Показывает ближайший месяц от сегодняшней даты — не зависит от фильтра «Период» сверху. Клик по ячейке — мгновенно покажет список кандидатов.</p>
+      <div class="table-scroll"><table class="pivot-table" id="tbl-pivot"></table></div>
+    </section>
+
+  </div>
+
+  <!-- Модальное окно для drill-down по сводной таблице -->
+  <div id="pivot-modal" style="display:none; position:fixed; inset:0; background:rgba(22,35,47,.5); z-index:100; align-items:center; justify-content:center;">
+    <div style="background:var(--paper-raised); border-radius:var(--radius); max-width:1000px; width:94%; max-height:80vh; overflow:hidden; display:flex; flex-direction:column;">
+      <div class="head">
+        <h2 id="pivot-modal-title">Кандидаты</h2>
+        <button class="reset-btn" id="pivot-modal-close">Закрыть ✕</button>
+      </div>
+      <div class="table-scroll" style="max-height:60vh;"><table id="pivot-modal-table"></table></div>
+    </div>
+  </div>
+
+  <!-- ДАШБОРД (воспроизводит старый дашборд руководителя) -->
+  <div class="tab-panel" id="tab-dashboard">
+    <p style="margin:0 0 16px; font-size:13px; color:var(--ink-soft);">
+      Снэпшот на сегодня — не зависит от фильтра «Период». Учитывает остальные фильтры сверху (ОП, Проект, Вид, Категория, Рекрутер). Расшифровка показателей — во вкладке «Как пользоваться».
+    </p>
+
+    <div class="metric-row">
+      <div class="metric ring-metric"><div id="ring-percent"></div><div class="lbl">Открыто заявок<br>из <span id="ring-percent-total">0</span></div></div>
+      <div class="metric ring-metric"><div id="ring-dohodimost"></div><div class="lbl">Осталось закрыть вакансий<br>из <span id="ring-dohodimost-total">0</span></div></div>
+    </div>
+
+    <div class="dynamics-banner">
+      <span class="dynamics-title">Динамика на этой неделе <span id="dash-week-label"></span></span>
+      <span class="dynamics-values" id="dash-vacancies-delta"></span>
+    </div>
+
+    <section class="block group-start">
+      <div class="head"><h2>Потребность по ОП</h2></div>
+      <div id="chart-dash-need-op" style="padding:16px;"></div>
+    </section>
+
+    <section class="block">
+      <div class="head"><h2>Потребность по заявкам</h2><span class="count" id="cnt-dash-need"></span></div>
+      <div class="table-scroll"><table id="tbl-dash-need"></table></div>
+    </section>
+
+    <section class="block">
+      <div class="head"><h2>Потребность по категориям</h2><span class="count" id="cnt-dash-cat"></span></div>
+      <div class="table-scroll"><table id="tbl-dash-cat"></table></div>
+    </section>
+
+    <section class="block group-start">
+      <div class="head"><h2>Этапы воронки</h2><div class="head-stat"><span class="head-stat-num" id="dash-inwork">0</span><span class="head-stat-lbl">В работе</span></div></div>
+      <div class="metric-row" style="padding:16px;">
+        <div class="metric"><div class="num" id="dash-soglasovanie">0</div><div class="lbl">Согласование</div><div class="delta-lbl" id="delta-soglasovanie"></div></div>
+        <div class="metric"><div class="num" id="dash-sbordok">0</div><div class="lbl">Сбор документов</div><div class="delta-lbl" id="delta-sbordok"></div></div>
+        <div class="metric"><div class="num" id="dash-sb">0</div><div class="lbl">Служба безопасности</div><div class="delta-lbl" id="delta-sb"></div></div>
+        <div class="metric"><div class="num" id="dash-medosmotr">0</div><div class="lbl">Медосмотр</div><div class="delta-lbl" id="delta-medosmotr"></div></div>
+        <div class="metric"><div class="num" id="dash-offer">0</div><div class="lbl">Оффер</div><div class="delta-lbl" id="delta-offer"></div></div>
+        <div class="metric"><div class="num" id="dash-mobilizatsiya">0</div><div class="lbl">Мобилизация</div><div class="delta-lbl" id="delta-mobilizatsiya"></div></div>
+        <div class="metric blue"><div class="num" id="dash-cherez-cts">0</div><div class="lbl">Через ЦТС</div><div class="delta-lbl" id="delta-cherez-cts"></div></div>
+        <div class="metric ok"><div class="num" id="dash-kuplen-bilet">0</div><div class="lbl">Куплен билет</div><div class="delta-lbl" id="delta-kuplen-bilet"></div></div>
+        <div class="metric ok"><div class="num" id="dash-cts">0</div><div class="lbl">на ЦТС</div><div class="delta-lbl" id="delta-cts"></div></div>
+        <div class="metric ok"><div class="num" id="dash-na-op">0</div><div class="lbl">на ОП</div><div class="delta-lbl" id="delta-na-op"></div></div>
+        <div class="metric ok"><div class="num" id="dash-trudoustroen">0</div><div class="lbl">Трудоустроен</div><div class="delta-lbl" id="delta-trudoustroen"></div></div>
+        <div class="metric warn"><div class="num" id="dash-rezerv">0</div><div class="lbl">Резерв</div><div class="delta-lbl" id="delta-rezerv"></div></div>
+        <div class="metric warn"><div class="num" id="dash-otkaz">0</div><div class="lbl">Отказ</div><div class="delta-lbl" id="delta-otkaz"></div></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- СВОДКА ЗА ПЕРИОД -->
+  <div class="tab-panel" id="tab-weekly">
+
+    <p style="margin:4px 0 20px; font-size:12px; color:var(--ink-soft);">Период задаётся один раз в панели фильтров сверху («Период») и применяется ко всем показателям на этой странице, а также к отказам. Готовность к выезду теперь только на «Оперативном отчёте» (единый источник, без дублей).</p>
+
+    <div class="metric-row">
+      <div class="metric"><div class="num" id="m-week-response">0</div><div class="lbl">Новые отклики за период (дата отклика) — «сколько нашли»</div></div>
+      <div class="metric"><div class="num" id="m-week-activity">0</div><div class="lbl">Активность за период (КН статус) — движение в воронке</div></div>
+      <div class="metric ok"><div class="num" id="m-week-sent">0</div><div class="lbl">Направлено за период (на ОП / Трудоустроен / Куплен билет)</div></div>
+    </div>
+
+    <details class="block">
+      <summary><h2>Закрыли за неделю</h2><span class="count" id="cnt-sent"></span></summary>
+      <p style="margin:0; padding:8px 16px; font-size:12px; color:var(--ink-soft); border-bottom:1px solid var(--line);">Статусы «на ОП», «Трудоустроен», «Куплен билет», проставленные в течение выбранного периода — сколько нашли, куда (проект) и кого (должность) отправили.</p>
+      <div style="display:flex; gap:20px; flex-wrap:wrap; padding:14px 16px 4px;">
+        <div style="flex:1; min-width:260px;">
+          <div style="font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:600; margin-bottom:6px;">Куда — по проектам</div>
+          <div class="table-scroll" style="max-height:280px;"><table id="tbl-sent-by-project"></table></div>
+        </div>
+        <div style="flex:1; min-width:260px;">
+          <div style="font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:600; margin-bottom:6px;">Кого — по должностям</div>
+          <div class="table-scroll" style="max-height:280px;"><table id="tbl-sent-by-position"></table></div>
+        </div>
+      </div>
+      <div style="font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:600; margin:10px 16px 6px;">Полный список</div>
+      <div class="table-scroll"><table id="tbl-sent"></table></div>
+    </details>
+
+    <details class="block">
+      <summary><h2>Новые отклики за период — список кандидатов</h2><span class="count" id="cnt-response-list"></span></summary>
+      <div class="table-scroll"><table id="tbl-response-list"></table></div>
+    </details>
+
+    <details class="block">
+      <summary><h2>Активность в разрезе статусов</h2><span class="count" id="cnt-activity-status"></span></summary>
+      <div class="table-scroll"><table id="tbl-activity-status"></table></div>
+    </details>
+
+  </div>
+
+  <!-- ОТКАЗЫ -->
+  <div class="tab-panel" id="tab-refusals">
+
+    <p style="margin:4px 0 20px; font-size:12px; color:var(--ink-soft);">Период задаётся в панели фильтров сверху («Период») — этот блок автоматически считает по дню, неделе или месяцу, в зависимости от того, что выбрано.</p>
+
+    <div class="metric-row">
+      <div class="metric"><div class="num" id="m-ref-resp">0</div><div class="lbl">Откликнулось за период</div></div>
+      <div class="metric amber"><div class="num" id="m-ref-refused">0</div><div class="lbl">Из них отказано в течение этого же периода</div></div>
+    </div>
+
+    <section class="block">
+      <div class="head"><h2>Отказы за период — причины</h2><span class="count" id="cnt-ref"></span></div>
+      <div class="table-scroll"><table id="tbl-ref"></table></div>
+    </section>
+
+    <section class="block">
+      <div class="head"><h2>Отказы за период — диаграмма</h2></div>
+      <div id="chart-ref" style="padding:16px;"></div>
+    </section>
+
+  </div>
+
+  <!-- ЗАЯВКИ НА КОНТРОЛЕ (зависшие) -->
+  <div class="tab-panel" id="tab-stale">
+    <p style="margin:0 0 16px; font-size:13px; color:var(--ink-soft);">
+      Заявка считается «зависшей», если она открыта (Статус = «Открыта») уже <b>2 месяца (60 дней)</b> и дольше с даты поступления. Порог можно будет изменить, если 2 месяца окажется не тем ориентиром.
+    </p>
+    <div class="metric-row">
+      <div class="metric warn"><div class="num" id="m-stale-count">0</div><div class="lbl">Заявок открыто 60+ дней</div></div>
+    </div>
+    <section class="block">
+      <div class="head"><h2>Зависшие заявки</h2><span class="count" id="cnt-stale"></span></div>
+      <div class="table-scroll"><table id="tbl-stale"></table></div>
+    </section>
+
+    <p style="margin:0 0 16px; font-size:13px; color:var(--ink-soft);">
+      Заявка открыта, но ни один кандидат в файле «Сбор данных» не ссылается на неё в поле «Заявка» — скорее всего, номер заявки там записан иначе (опечатка или другой формат). Из-за этого «Осталось закрыть» по такой заявке считается как «ничего не сделано», хотя по факту может быть не так — стоит сверить и поправить привязку в исходниках.
+    </p>
+    <div class="metric-row">
+      <div class="metric warn"><div class="num" id="m-unlinked-count">0</div><div class="lbl">Открытых заявок без ни одного кандидата в «Сбор данных»</div></div>
+    </div>
+    <section class="block">
+      <div class="head"><h2>Заявки без привязанных кандидатов</h2><span class="count" id="cnt-unlinked"></span></div>
+      <div class="table-scroll"><table id="tbl-unlinked"></table></div>
+    </section>
+  </div>
+
+  <!-- РЕКРУТЕРЫ -->
+  <div class="tab-panel" id="tab-recruiters">
+    <p style="margin:0 0 16px; font-size:13px; color:var(--ink-soft);">
+      Не зависит от фильтра «Период» — это накопленная картина по всем кандидатам, которых вёл рекрутер (с учётом остальных фильтров сверху: ОП, Проект, Вид и т.д.). «Конверсия» и «Доля отказов» считаются только среди кандидатов с уже решённым исходом (Куплен билет / на ОП / Трудоустроен / Отказ) — те, кто ещё в процессе, в знаменатель не входят, чтобы не занижать показатели рекрутерам со свежим набором кандидатов.
+    </p>
+    <section class="block">
+      <div class="head"><h2>Нагрузка и показатели по рекрутерам</h2><span class="count" id="cnt-recruiters"></span></div>
+      <div class="table-scroll"><table id="tbl-recruiters"></table></div>
+    </section>
+
+    <p style="margin:24px 0 16px; font-size:13px; color:var(--ink-soft);">
+      <b>Эффективность передачи кандидатов между рекрутерами.</b> Данные не хранят напрямую «кому передали» — связка восстановлена по комментарию, совпадению ФИО+ОП+Проект+дата или телефону. Из всех передач удалось однозначно установить исход у <span id="transfer-coverage-text">—</span>. Остальные передачи в расчёт не входят — честнее не учитывать, чем гадать.
+    </p>
+    <div class="metric-row">
+      <div class="metric"><div class="num" id="m-transfer-total">0</div><div class="lbl">Всего передач в данных</div></div>
+      <div class="metric ok"><div class="num" id="m-transfer-resolved">0</div><div class="lbl">С установленным исходом</div></div>
+    </div>
+
+    <section class="block">
+      <div class="head"><h2>Как получатель — принимает от коллег</h2><span class="count" id="cnt-transfer-receiver"></span></div>
+      <p style="margin:0; padding:8px 16px; font-size:12px; color:var(--ink-soft); border-bottom:1px solid var(--line);">Из принятых по передаче кандидатов — какая доля доведена до Трудоустроен/на ОП против Отказа.</p>
+      <div class="table-scroll"><table id="tbl-transfer-receiver"></table></div>
+    </section>
+
+    <section class="block">
+      <div class="head"><h2>Как отправитель — передаёт коллегам</h2><span class="count" id="cnt-transfer-sender"></span></div>
+      <p style="margin:0; padding:8px 16px; font-size:12px; color:var(--ink-soft); border-bottom:1px solid var(--line);">Из переданных кандидатов — какая доля в итоге дошла до Трудоустроен/на ОП под новым рекрутером против Отказа. Низкая доля может говорить о том, что передаются нерелевантные кандидаты.</p>
+      <div class="table-scroll"><table id="tbl-transfer-sender"></table></div>
+    </section>
+  </div>
+
+  <!-- КАК ПОЛЬЗОВАТЬСЯ -->
+  <div class="tab-panel" id="tab-help">
+    <section class="block">
+      <div class="head"><h2>Как пользоваться инструментом</h2></div>
+      <div style="padding:18px 20px; font-size:13.5px; line-height:1.7;">
+        <h3 style="color:var(--blueprint); margin-top:0;">1. Загрузка данных</h3>
+        <p>Загрузите два CSV-файла: «Сбор данных» (обязателен — это основной лог кандидатов) и «Отчет» (нужен только для списка открытых заявок). Файлы загружаются вручную каждый раз, когда нужен свежий отчёт — данные не обновляются сами.</p>
+
+        <h3 style="color:var(--blueprint);">2. Фильтры сверху</h3>
+        <p>Две группы: <b>Период</b> (День/Неделя/Месяц + Год) и <b>срез данных</b> (ОП, Проект, Вид/участок, Должность, Категория). <b>Рекрутер</b> — отдельно, справа.<br>
+        <b>Год</b> — год события, считается от даты статуса кандидата.<br>
+        <b>ОП</b> — площадка. При выборе ОП список проектов сужается только до проектов этой площадки.<br>
+        <b>Проект</b> — конкретный проект в рамках выбранного ОП.<br>
+        <b>Должность</b> — поиск по вхождению текста (например, «монтажник» найдёт все вариации должности).<br>
+        <b>Вид / участок</b> — производственный участок (МК, МО, РВС, ТТ и т.д.).<br>
+        <b>Категория</b> — ИТР / ИТР-Лин. / РОП / РОП-Сварщик.<br>
+        <b>Рекрутер</b> — фильтр по конкретному рекрутеру, который ведёт кандидата.<br>
+        <b>Период</b> — один общий переключатель на весь инструмент: День / Неделя / Месяц / **Все**. Он управляет сразу всеми показателями, которые зависят от времени: новыми откликами, активностью, «Направлено» и отказами. «Все» — без ограничения по дате, считает за всё время. Неделя по умолчанию — текущая календарная (от сегодняшней даты), считается с понедельника по воскресенье и ограничена неделями выбранного года. Готовность к выезду (Оперативный отчёт) в этот переключатель не входит — у неё свой фиксированный горизонт, ближайший месяц от сегодня.</p>
+
+        <h3 style="color:var(--blueprint);">3. Вкладки</h3>
+        <p><b>Дашборд</b> (открывается первой) — снэпшот на сегодня, не зависит от «Период», порядок сверху вниз: два кольца — «Открыто заявок из N» и «Осталось закрыть вакансий из N» — оба следуют за фильтром «Год» сверху: если выбран конкретный год, считают заявки с датой поступления в этом году; если выбрано «Все», считают по всем годам разом (сейчас это 2025–2026), подпись под кольцами показывает выбранный период. В центре первого кольца — сколько из этих заявок сейчас в статусе «Открыта»; в центре второго — сумма «Кол-во вакансий» минус Куплен билет/на ОП/Трудоустроен по кандидатам, привязанным к ЭТИМ ЖЕ, но только открытым заявкам (закрытые в остаток не считаются). Дальше — баннер «Динамика на этой неделе»; столбчатая диаграмма «Потребность по ОП» (закрыли / осталось); таблица «Потребность по заявкам» (строки — категория, столбцы — ОП); «Потребность по категориям»; и в самом низу «Этапы воронки» — 13 статусов плитками (в шапке блока справа — «В работе»; под числом каждой плитки — «+N за нед.», сколько кандидатов вошло в этот статус на текущей календарной неделе).<br>
+        В «Этапах воронки» «Через ЦТС» (канал, только активные кандидаты) стоит сразу после «Мобилизации» — отдельно от статуса «на ЦТС», это разные вещи: один канал маршрутизации, другой — текущий статус.<br>
+        <b>Сводка за период</b> — три карточки сверху: новые отклики («сколько нашли»), активность (движение по статусам) и «Направлено» (кто получил статус «на ОП» / «Трудоустроен» / «Куплен билет» за период). Под карточками — сворачиваемые блоки, по умолчанию свёрнуты, кликните на заголовок блока, чтобы развернуть: «Закрыли за неделю» — кого фактически отправили за период, с разбивкой «куда» (по ОП/проектам) и «кого» (по должностям), плюс полный список кандидатов; список новых откликов; и разбивка активности по статусам. Готовности к выезду здесь больше нет — она переехала на «Оперативный отчёт», чтобы не было двух разных ответов на один вопрос «когда приедут».<br>
+        <b>Оперативный отчёт</b> — открытые заявки (с итоговой строкой по сумме вакансий/осталось — строка закреплена внизу таблицы), кто сейчас «в работе», диаграмма «в работе по ОП» и сводная таблица готовности к выезду: недели сгруппированы сверху, даты — под ними. Эта сводная таблица всегда показывает фиксированный горизонт — ближайший месяц от сегодняшнего дня, а не выбранный период. Клик по любой ячейке с числом мгновенно показывает список конкретных кандидатов (включая гражданство и источник).<br>
+        <b>Отказы</b> — сколько откликнулось за период и сколько из них отказано в течение этого же периода, с разбивкой по причинам и диаграммой.<br>
+        <b>Заявки на контроле</b> — заявки, которые открыты 60+ дней без закрытия (не зависит от периода — это снэпшот на сегодня); ниже — открытые заявки, у которых нет ни одного привязанного кандидата в файле «Сбор данных» (обычно из-за несовпадения номера заявки в поле «Заявка» с «№ Заявки» в «Отчете») — эти заявки стоит сверить в исходниках, т.к. по ним «Осталось закрыть» считается без учёта реального прогресса.<br>
+        <b>Рекрутеры</b> — нагрузка и показатели по каждому рекрутеру: сколько кандидатов «в работе» сейчас, «Доходимость» — сколько дошло до решённого исхода (Куплен билет/на ОП/Трудоустроен/Отказ), «% Доходимости» — какая доля из дошедших до решения оказалась успешной, а не отказом (считается именно от дошедших, не от всех когда-либо назначенных — иначе рекрутер со свежим набором кандидатов выглядел бы хуже просто из-за возраста своей воронки), среднее число дней без смены статуса у активных кандидатов, и отдельно — счётчик дат статуса, ошибочно попавших в будущее. Ниже — эффективность передачи кандидатов между рекрутерами: «Всего получено/передано» — сколько кандидатов прошло через передачу, «Из них трудоустроены» / «Из них отказались» / «Ещё в работе» — их исход, «% трудоустройства» — доля успешных среди уже решённых. Связка «от кого — кому» в исходных данных не хранится напрямую, восстановлена по комментарию/ФИО+ОП+Проекту/телефону, точный процент покрытия виден прямо в блоке. Уволенные рекрутеры (Тхорева Е, Попов Д, Голубкина С) исключены из всего трекера целиком. Не зависит от «Период» — это накопленная картина по всем кандидатам рекрутера.</p>
+
+        <h3 style="color:var(--blueprint);">4. Сортировка, печать и экспорт</h3>
+        <p>В таблицах «Заявки», «В работе» и «Заявки на контроле» можно кликнуть на заголовок столбца, чтобы отсортировать по нему — повторный клик меняет направление. Кнопка «Печать / PDF» в шапке страницы открывает системное окно печати браузера — там можно сохранить текущий открытый экран в PDF. У таблиц «Заявки (открытые)» и «В работе» есть отдельная кнопка «Экспорт в Excel» — она выгружает именно то, что сейчас отфильтровано и отсортировано на экране, в .xlsx-файл.</p>
+
+        <h3 style="color:var(--blueprint);">5. Важно понимать про логику дат</h3>
+        <p>Номер недели (КН) программа считает <b>сама</b>, по дате события — не берёт готовое число из исходной таблицы. Неделя идёт с понедельника по воскресенье. Если дата в исходнике набрана с ошибкой (например, неверный год или обрезанная запись), неделя посчитается неверно. Проверяйте подозрительно большие/маленькие номера недель на предмет опечаток в датах.</p>
+      </div>
+    </section>
+  </div>
+
+</div>
+
+<footer class="note">Данные считаются на момент последней загрузки CSV-файлов в этом окне браузера. Ничего не сохраняется и никуда не отправляется.</footer>
+
+<script>
+/* ==================== СПРАВОЧНИК: Участок/Отдел/Группа -> Вид ==================== */
+const CITIZENSHIP_CANON = {
+  "казакстан": "Казахстан",
+  "рф": "Россия",
+  "россия (внж)": "Россия (ВНЖ)",
+  "казахстан внж": "Казахстан (ВНЖ)",
+  "туркменистан внж": "Туркменистан (ВНЖ)",
+  "туркменистан внж рф": "Туркменистан (ВНЖ)",
+  "гражданство": "Не указано (ошибка в данных)"
+};
+function normCitizenship(raw){
+  const s = normSpace(raw);
+  if(!s) return s;
+  const key = s.toLowerCase();
+  if(CITIZENSHIP_CANON[key]) return CITIZENSHIP_CANON[key];
+  const OFFICIAL = ["азербайджан","армения","беларусь","босния и герцеговина","индия","казахстан","кыргызстан","россия","сербия","таджикистан","туркменистан","узбекистан","украина","турция"];
+  if(key === "киргизия") return "Кыргызстан";
+  if(OFFICIAL.includes(key)) return s.charAt(0).toUpperCase()+s.slice(1).toLowerCase();
+  return s;
+}
+
+const SOURCE_CANON = {
+  "агенство": "Агентство",
+  "рекомендация": "Рекомендация", // выравнивание регистра
+  "источник": "Не указано (ошибка в данных)"
+};
+function normPhone(raw){
+  if(!raw) return null;
+  const digits = String(raw).replace(/\D/g,"");
+  return digits.length>=10 ? digits.slice(-10) : null; // последние 10 цифр, без кода страны — для сопоставления одного и того же человека
+}
+function normSource(raw){
+  const s = normSpace(raw);
+  if(!s) return s;
+  const key = s.toLowerCase();
+  return SOURCE_CANON[key] || s;
+}
+
+const REFUSAL_CANON = {
+  "перестал": "Перестал выходить на связь",
+  "не релевантный опыт работы": "Не релевантный опыт",
+  "закрылась потребность": "Потребность закрыта",
+  "нет потребности": "Потребность закрыта",
+  "куплен билет": "Не указано (ошибка в данных)",       // статус, попавший не в то поле
+  "согласование": "Не указано (ошибка в данных)",        // статус, попавший не в то поле
+  "аналитика отказов": "Не указано (ошибка в данных)",   // заголовок, попавший в данные
+  "рунова с": "Не указано (ошибка в данных)"             // ФИО рекрутера, попавшее не в то поле
+};
+function normRefusal(raw){
+  const s = normSpace(raw);
+  if(!s) return s;
+  const key = s.toLowerCase();
+  return REFUSAL_CANON[key] || s;
+}
+
+const CATEGORY_MAP = {
+  // ИТР — подтверждено файлом "Отчет" (Должность × Категория)
+  "бухгалтер": "ИТР",
+  "ведущий инженер": "ИТР",
+  "ведущий инженер по сварке": "ИТР",
+  "ведущий специалист": "ИТР",
+  "ведущий специалист по кадрам": "ИТР",
+  "ведущий экономист по труду": "ИТР",
+  "геодезист": "ИТР",
+  "делопроизводитель": "ИТР",
+  "диспетчер": "ИТР",
+  "заместитель начальника отдела": "ИТР",
+  "заместитель руководителя проекта по строительству": "ИТР",
+  "инженер": "ИТР",
+  "инженер по сварке": "ИТР",
+  "инструктор": "ИТР",
+  "кладовщик": "ИТР",
+  "контролер сварочных работ": "ИТР",
+  "мастер погрузочно-разгрузочных работ": "ИТР",
+  "переводчик": "ИТР",
+  "помощник геодезиста": "ИТР",
+  "руководитель группы": "ИТР",
+  "руководитель объекта": "ИТР",
+  "системный администратор": "ИТР",
+  "специалист": "ИТР",
+  "специалист по здоровью": "ИТР",
+  "специалист по кадрам": "ИТР",
+  "специалист по охране труда": "ИТР",
+  "техник": "ИТР",
+  "учетчик": "ИТР",
+  "экономист по труду": "ИТР",
+  "руководитель оп": "ИТР",
+  "начальник отдела": "ИТР",
+  // ИТР-Лин. — ровно 4 должности, подтверждено вами
+  "мастер смр": "ИТР-Лин.",
+  "производитель работ": "ИТР-Лин.",
+  "начальник участка": "ИТР-Лин.",
+  "заместитель начальника участка": "ИТР-Лин.",
+  // РОП — подтверждено файлом "Отчет"
+  "газорезчик": "РОП",
+  "монтажник жбк": "РОП",
+  "монтажник жбк (гильотинщик)": "РОП",
+  "монтажник тт": "РОП",
+  "монтажник мк": "РОП",
+  "наладчик сварочного и газоплазморезательного оборудования": "РОП",
+  "оператор-термист": "РОП",
+  "оператор чпу": "РОП",
+  "подсобный рабочий": "РОП",
+  "стропальщик": "РОП",
+  "водитель": "РОП",
+  "уборщик": "РОП",
+  "электромонтёр по ремонту и обслуживанию электрооборудования": "РОП",
+  // РОП-Сварщик — подтверждено файлом "Отчет"
+  "электрогазосварщик": "РОП-Сварщик"
+};
+function getCategory(position){
+  const key = normKey(position);
+  if(!key) return "Не указано";
+  if(CATEGORY_MAP[key]) return CATEGORY_MAP[key];
+  return "Требует дополнительного уточнения"; // нет в справочнике — не угадываем, ждём вашего решения
+}
+
+const DOLZHNOST_CANON = {
+  // сварщики — заказчику/руководству важен факт "сварщик", не квалификационный код
+  "электрогазосварщик рад+рд": "Электрогазосварщик",
+  "электрогазосварщик рд": "Электрогазосварщик",
+  "электрогазосварщик рд, мп, мпг": "Электрогазосварщик",
+  "электрогазосварщик мпг": "Электрогазосварщик",
+  "электрогазосварщик рад": "Электрогазосварщик",
+  "электрогазосварщик": "Электрогазосварщик",
+  "электросварщик": "Электрогазосварщик",
+  "сварщик": "Электрогазосварщик",
+  "элетрогазосварщик рад+рд": "Электрогазосварщик",
+  "элетрогасварщик рад+рд": "Электрогазосварщик",
+  "электрогазосвварщик рад+рд": "Электрогазосварщик",
+  "электрогазосварщик рад + рд": "Электрогазосварщик",
+  "электрогазосварщик рд+рад": "Электрогазосварщик",
+  "элетрогазосварщик рд": "Электрогазосварщик",
+  "электрогазоварщик рд": "Электрогазосварщик",
+  "электтрогазосварщик рд": "Электрогазосварщик",
+  "мпг ск 1": "Электрогазосварщик",
+  // типовые опечатки
+  "монтжаник тт": "Монтажник ТТ",
+  "монтажик тт": "Монтажник ТТ",
+  "монтажник жбк": "Монтажник ЖБК",
+  "стропольщик": "Стропальщик",
+  "стропальщик": "Стропальщик",
+  "начальник  отдела": "Начальник отдела",
+  "начальник отдела": "Начальник отдела",
+  "оператор - термист": "Оператор-термист",
+  "оператор -термист": "Оператор-термист",
+  "оператор-термист на передвижных термических установках": "Оператор-термист",
+  "мастер прр": "Мастер погрузочно-разгрузочных работ",
+  "уборщик": "Уборщик",
+  "ведущий экономист": "Ведущий экономист по труду",
+  // брак строк — не должности
+  "0": "Не указано (ошибка в данных)",
+  "сму": "Не указано (ошибка в данных)",
+  "склад трубных заготовок": "Не указано (ошибка в данных)",
+  "сбор документов": "Не указано (ошибка в данных)",
+  "должность": "Не указано (ошибка в данных)"
+};
+function canonDolzhnost(raw){
+  const s = normSpace(raw);
+  if(!s) return s;
+  const key = s.toLowerCase();
+  return DOLZHNOST_CANON[key] || s;
+}
+
+const UCHASTOK_CANON = {
+"участо монтажа металлоконструкций": "Участок монтажа металлоконструкций",
+"участок монтажа металлоклнструкций": "Участок монтажа металлоконструкций",
+"участок монтажа металлоконструкции": "Участок монтажа металлоконструкций",
+"участок монтжа металлокострукций": "Участок монтажа металлоконструкций",
+"участок монтажа-трубопроводов": "Участок монтажа трубопроводов",
+"участок монтажатрубопроводов": "Участок монтажа трубопроводов",
+"участок монтажа трубопровода": "Участок монтажа трубопроводов",
+"участок монтажа трубопроводов": "Участок монтажа трубопроводов",
+"участок технологических трубопроводов": "Участок технологических трубопроводов",
+"участок подготовки и проведения испытаний": "Участок подготовки и проведения испытаний трубопроводов и ППНР",
+"участок испытаний и ппнр": "Участок подготовки и проведения испытаний трубопроводов и ППНР",
+"ппнр": "Участок подготовки и проведения испытаний трубопроводов и ППНР",
+"участок монтажа резервуаров": "Участок монтажа резервуаров",
+"участок подготовски сварщиков": "Участок подготовки сварщиков",
+"склад трубных заготовок": "Склад трубных заготовок",
+"участок склад трудных заготовок": "Склад трубных заготовок",
+"группа испытаний и ппнр": "Группа испытаний и ППНР",
+"№111-ул": "Не указано (ошибка в данных)",
+"усть-луга": "Не указано (ошибка в данных)",
+"участок / отдел / группа": "Не указано (ошибка в данных)"
+};
+function canonUchastok(raw){
+  const s = normSpace(raw);
+  if(!s) return s;
+  const key = s.toLowerCase();
+  return UCHASTOK_CANON[key] || s;
+}
+
+const VID_MAP = {
+"участок монтажа металлоконструкций": "МК",
+"участо монтажа металлоконструкций": "МК",
+"участок монтажа металлоклнструкций": "МК",
+"участок монтажа металлоконструкции": "МК",
+"участок монтжа металлокострукций": "МК",
+"группа мк": "МК",
+"опп группа мк": "МК",
+"участок монтажа оборудования": "МО",
+"участок монтажа резервуаров": "РВС",
+"участок монтажа трубопроводов": "ТТ",
+"участок монтажа-трубопроводов": "ТТ",
+"участок монтажатрубопроводов": "ТТ",
+"участок монтажа трубопровода": "ТТ",
+"участок монтажа технологического трубопровода": "ТТ",
+"участок монтажа технологических трубопроводов": "ТТ",
+"участок технологических трубопроводов": "ТТ",
+"участок подготовки и проведения испытаний трубопроводов и ппнр": "ТТ",
+"участок подготовки и проведения испытаний": "ТТ",
+"участок испытаний и ппнр": "ТТ",
+"участок пуско-наладочных работ": "ТТ",
+"участок производства трубных заготовок": "ТТ",
+"участок производства спулов": "ТТ",
+"ппнр": "ТТ",
+"группа испытаний и ппнр": "ОПиСП",
+"группа металлоконструкций": "ОПиСП",
+"группа резервуаров": "ОПиСП",
+"группа технологических трубопроводов": "ОПиСП",
+"группа технологического оборудования": "ОПиСП",
+"отдел подготовки производства": "ОПиСП",
+"отдел подготовки и сопровождения производства": "ОПиСП",
+"группа мониторинга и учета выполненных работ": "ПТО",
+"группа по оформлению исполнительной документации": "ПТО",
+"производственно-технический отдел": "ПТО",
+"пто": "ПТО",
+"группа учета металлоконструкций": "ПТО",
+"группа кадрового документооборота": "ОК",
+"отдел кадров": "ОК",
+"группа по подбору и адаптации": "ОПиАП",
+"группа подбора и адаптации персонала": "ОПиАП",
+"отдел по подбору и адаптации персонала": "ОПиАП",
+"группа мобилизации и координации": "ГМП",
+"группа трудовой миграции": "ГТМ",
+"отдел миграции": "ГТМ",
+"группа экономики труда": "ГЭТ",
+"экономист по труду": "ГЭТ",
+"отдел по работе с персоналом": "ОТиЗ",
+"отдел труда и заработной платы": "ОТиЗ",
+"отдел нормирования и контроля затрат": "ОТиЗ",
+"отдел расчета заработной платы": "ОТиЗ",
+"отдел охраны труда": "ОТ ПБ",
+"отдел охраны труда, промышленной безопасности и охраны окружающей среды": "ОТ ПБ",
+"отдел организации и контроля сварочных работ": "ОГС",
+"участок подготовки сварщиков": "ОГС",
+"участок подготовски сварщиков": "ОГС",
+"отдел геодезических работ": "Геодезия",
+"отдел информационных технологий": "ИТ",
+"группа учета спулов": "ГУС",
+"руководство": "Руководство",
+"начальник участка": "Руководство",
+"склад": "Склад",
+"склад трубных заготовок": "Склад",
+"склад металлоконструкций": "Склад",
+"участок склад трудных заготовок": "Склад",
+"хозяйственный отдел": "Склад",
+"группа по обучению": "ОРП",
+"группа делопроизводства": "ОК",
+"отдел делопроизводства": "ОК",
+"коммерческо-договорной отдел": "ОПиСП",
+"мастер прр": "Склад",
+"отдел бухгалтерского и налогового учета": "ГЭТ",
+"отдел бухгалтерского учета": "ГЭТ",
+"отдел обеспечения безопасности": "СБ",
+"отдел по общим вопросам": "Склад",
+"финансовый отдел": "ГЭТ",
+"№111-ул": "Не указано",
+"усть-луга": "Не указано",
+"участок / отдел / группа": "Не указано"
+};
+
+const ACTIVE_STATUSES = ["Сбор документов","Согласование","Мобилизация","Медосмотр","Куплен билет","Служба безопасности","на ЦТС","Оффер"];
+// уволенные рекрутеры — их кандидаты полностью исключаются из всего трекера (не только из вкладки "Рекрутеры")
+const EXCLUDED_RECRUITERS = ["Тхорева Е","Попов Д","Голубкина С"];
+// READY_STATUSES убрана: была нужна только для дублирующей таблицы "Готовность к выезду за период" на Сводке, которую убрали (см. renderWeekly)
+
+function normKey(s){
+  if(s===null || s===undefined) return "";
+  return String(s).trim().replace(/\s+/g," ").toLowerCase();
+}
+function normSpace(s){
+  if(s===null || s===undefined) return "";
+  return String(s).trim().replace(/\s+/g," ");
+}
+function normRecruiterName(raw){
+  const s = normSpace(raw);
+  if(!s) return s;
+  // выравниваем только регистр первой буквы — "барыбина А" и "Барыбина А" не должны считаться разными рекрутёрами
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+function getVid(uchastok){
+  const key = normKey(uchastok);
+  if(!key) return "Не указано";
+  if(VID_MAP[key]) return VID_MAP[key];
+  if(key.includes("резервуар")) return "РВС";
+  if(key.includes("металлоконструк")) return "МК";
+  if(key.includes("труб") || key.includes("ппнр") || key.includes("испытан")) return "ТТ";
+  if(key.includes("оборудован")) return "МО";
+  if(key.includes("сварщ") || key.includes("сварочн")) return "ОГС";
+  if(key.includes("склад")) return "Склад";
+  if(key.includes("охран") && key.includes("труд")) return "ОТ ПБ";
+  if(key.includes("кадр")) return "ОК";
+  if(key.includes("подбор")) return "ОПиАП";
+  if(key.includes("миграц")) return "ГТМ";
+  if(key.includes("мобилизац")) return "ГМП";
+  if(key.includes("геодез")) return "Геодезия";
+  return "Не определено";
+}
+function normalizeOP(op){
+  let s = normSpace(op);
+  if(!s) return s;
+  const key = s.toLowerCase();
+  if(key === "усть луга") return "Усть-Луга";
+  if(key === "агхк") return "Амурский ГХК";
+  if(key === "завод спг") return "Усть-Луга"; // ошибка ввода: название проекта попало в поле ОП
+  if(key === "цок москва") return "ЦОК";       // ошибка ввода: проект попал в поле ОП
+  if(key === "бц багратион") return "Москва Сити"; // БЦ Багратион — это проект, не ОП
+  if(key === "мурманск awp1") return "Мурманск";    // AWP1 — проект, не ОП
+  if(key === "москва") return "Москва Сити";   // единичная опечатка, судя по проекту "ТЦ Багратион" в этой же строке
+  if(key === "кингисепп цтс" || key === "кингисепп-цтс") return "Кингисепп"; // ЦТС — это не ОП, а канал (см. столбец "через ОП / ЦТС")
+  if(key === "оп") return "Не указано"; // в данные попал заголовок таблицы
+  return s;
+}
+function normalizeProject(p){
+  let s = normSpace(p);
+  if(!s) return s;
+  const key = s.toLowerCase();
+  if(/^агхк[\s_-]*смк$/i.test(key) || key==="агхк") return "АГХК"; // на ОП Амурский ГХК только один проект
+  if(key === "тсб и мот") return "ТСБ и МОТ";
+  if(key === "порт бухта север" || key === "диксон") return "Порт бухта Север"; // на ОП Диксон только один проект
+  if(key === "завод спг") return "Завод СПГ";
+  if(["геленджик марина", "марина-сму", "марина", "геленджик марина - сму"].includes(key)) return "Геленджик Марина - СМУ";
+  if(key === "криница") return "Криница. Дом охотника №5.";
+  if(key === "тц багратион") return "БЦ Багратион";
+  if(key === "мурманск awp1") return "AWP1";
+  if(key === "мурманск gwp") return "GWP";
+  if(key === "кингисепп цтс" || key === "кингисепп-цтс") return "ЦТС";
+  if(key === "проект") return "Не указано"; // в данные попал заголовок таблицы
+  return s;
+}
+function toNum(v){
+  if(v===null||v===undefined||v==="") return null;
+  const n = parseFloat(String(v).replace(",", "."));
+  return isNaN(n) ? null : n;
+}
+function esc(s){
+  return (s===null||s===undefined) ? "" : String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+}
+function parseRUDate(str){
+  if(!str) return null;
+  const m = String(str).trim().match(/^(\d{1,2})\.(\d{1,2})\.(\d{2,4})/);
+  if(!m) return null;
+  let [_, d, mo, y] = m;
+  if(y.length===2) y = "20"+y;
+  const yearNum = parseInt(y);
+  if(y.length!==4 || yearNum<2000 || yearNum>2100) return null; // неправдоподобный год (напр. обрыв "...202" вместо "...2026") — считаем дату нераспознанной
+  const dt = new Date(yearNum, parseInt(mo)-1, parseInt(d));
+  if(isNaN(dt.getTime())) return null;
+  return dt;
+}
+// КН считаем сами по дате: неделя с понедельника по воскресенье (стандарт ISO 8601, по вашему запросу).
+function isoWeekParts(date){
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7; // Пн=1 ... Вс=7
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  const week = Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+  return {year: d.getUTCFullYear(), week: week};
+}
+function computeKN(dateStr){
+  const d = parseRUDate(dateStr);
+  if(!d) return {year:null, week:null};
+  return isoWeekParts(d); // неделя Пн-Вс, стандарт ISO 8601
+}
+// календарный месяц (для отчёта по отказам за месяц) — обычный месяц/год, без сдвигов недель
+function computeMonth(dateStr){
+  const d = parseRUDate(dateStr);
+  if(!d) return {year:null, month:null};
+  return {year: d.getFullYear(), month: d.getMonth()+1};
+}
+const MONTH_NAMES = ["","Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+
+/* ==================== STATE ==================== */
+let collectionData = [];   // Сбор данных, обработанные строки
+let reportData = [];       // Отчет, обработанные строки
+let activeTab = "operational";
+
+/* ==================== ЗАГРУЗКА: Сбор данных ==================== */
+document.getElementById("file-collection").addEventListener("change", function(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  Papa.parse(file, {
+    header:true,
+    skipEmptyLines:true,
+    encoding:"UTF-8",
+    complete:function(results){
+      collectionData = results.data.map(r=>{
+        const op = normalizeOP(r["ОП"]);
+        const project = normalizeProject(r["Проект"]);
+        const uchastok = canonUchastok(r["Участок / Отдел / Группа"]);
+        return {
+          recruiter: normRecruiterName(r["Рекрутер"]),
+          fio: normSpace(r["ФИО"]),
+          op: op,
+          project: project,
+          uchastok: uchastok,
+          vid: getVid(uchastok),
+          position: canonDolzhnost(r["Должность"]),
+          category: getCategory(canonDolzhnost(r["Должность"])),
+          prevStatus: normSpace(r["Предыдущий статус"]),
+          status: normSpace(r["Статус"]),
+          statusDate: normSpace(r["Дата статуса"]),
+          readyDate: normSpace(r["Дата готов. / БИЛЕТА"]),
+          responseDate: normSpace(r["Дата отклика"]),
+          knStatus: computeKN(r["Дата статуса"]).week,
+          knStatusYear: computeKN(r["Дата статуса"]).year,
+          knReady: computeKN(r["Дата готов. / БИЛЕТА"]).week,
+          knReadyYear: computeKN(r["Дата готов. / БИЛЕТА"]).year,
+          knResponse: computeKN(r["Дата отклика"]).week,
+          knResponseYear: computeKN(r["Дата отклика"]).year,
+          respMonth: computeMonth(r["Дата отклика"]).month,
+          respMonthYear: computeMonth(r["Дата отклика"]).year,
+          statMonth: computeMonth(r["Дата статуса"]).month,
+          statMonthYear: computeMonth(r["Дата статуса"]).year,
+          readyMonth: computeMonth(r["Дата готов. / БИЛЕТА"]).month,
+          readyMonthYear: computeMonth(r["Дата готов. / БИЛЕТА"]).year,
+          year: computeKN(r["Дата статуса"]).year, // "рабочий год" считаем от даты статуса, а не берём из исходной колонки
+          zayavka: normSpace(r["Заявка"]),
+          citizenship: normCitizenship(r["Гражданство"]),
+          throughCTS: /цтс/i.test(normSpace(r["через ОП / ЦТС"])) || normKey(r["через ОП / ЦТС"])==="ац москва", // канал "через ОП / ЦТС": Кингисепп ЦТС / АЦ Москва — не статус, отдельная маршрутизация
+          source: normSource(r["Источник"]),
+          refusalReason: normRefusal(r["Аналитика отказов"]),
+          comment: normSpace(r["Комментарий"]),
+          phone: normPhone(r["Контакты"])
+        };
+      }).filter(r=>r.fio && r.fio!=="ФИО" && !EXCLUDED_RECRUITERS.includes(r.recruiter)); // отбрасываем мусорные/пустые строки, задвоенные заголовки и уволенных рекрутеров
+      document.getElementById("status-collection").textContent = "Загружено строк: " + collectionData.length;
+      document.getElementById("status-collection").classList.remove("empty");
+      document.getElementById("card-collection").classList.add("loaded");
+      onDataReady();
+    }
+  });
+});
+
+/* ==================== ЗАГРУЗКА: Отчет ==================== */
+document.getElementById("file-report").addEventListener("change", function(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  Papa.parse(file, {
+    header:false,
+    skipEmptyLines:true,
+    encoding:"UTF-8",
+    complete:function(results){
+      const rows = results.data;
+      const header = rows[1] || [];
+      const dataRows = rows.slice(2);
+      reportData = dataRows.map(row=>{
+        const obj = {};
+        header.forEach((h,i)=>{ obj[normSpace(h)] = row[i]; });
+        return {
+          year: toNum(obj["Год"]),
+          zayavkaNum: normSpace(obj["№ Заявки"]),
+          op: normalizeOP(obj["ОП"]),
+          project: normalizeProject(obj["Проект"]),
+          uchastok: normSpace(obj["Участок / Отдел / Группа"]),
+          vid: normSpace(obj["вид"]) || getVid(obj["Участок / Отдел / Группа"]),
+          position: canonDolzhnost(obj["Должность"]),
+          category: normSpace(obj["Категория"]).replace(/\s*-\s*/g, "-"), // "ИТР - Лин." -> "ИТР-Лин." (в Отчете дефис с пробелами, у нас без)
+          status: normSpace(obj["Статус"]),
+          kolVacancy: toNum(obj["Кол - во вакансий"]),
+          naOP: toNum(obj[" на ОП"]),
+          vRabote: toNum(obj["В работе"]),
+          ostalos: toNum(obj["Осталось"]),
+          dedline: normSpace(obj["Дедлайн"]),
+          dateReceived: normSpace(obj["Дата поступления заявки"])
+        };
+      }).filter(r=>r.zayavkaNum);
+      document.getElementById("status-report").textContent = "Загружено заявок: " + reportData.length;
+      document.getElementById("status-report").classList.remove("empty");
+      document.getElementById("card-report").classList.add("loaded");
+      onDataReady();
+    }
+  });
+});
+
+/* ==================== ИНИЦИАЛИЗАЦИЯ ПОСЛЕ ЗАГРУЗКИ ==================== */
+// Восстановление ОП/Проекта/Участка у кандидата по номеру заявки, если поле "Заявка" совпадает
+// с "№ Заявки" в файле "Отчет", а сами поля у кандидата пустые. Не трогает уже заполненные поля.
+function backfillFromReport(){
+  if(!collectionData.length || !reportData.length) return 0;
+  const zayavkaLookup = new Map();
+  reportData.forEach(r=>{ if(r.zayavkaNum && !zayavkaLookup.has(r.zayavkaNum)) zayavkaLookup.set(r.zayavkaNum, r); });
+  let filled = 0;
+  collectionData.forEach(r=>{
+    if(!r.zayavka || /^без заявки$/i.test(r.zayavka)) return;
+    if(r.op && r.project && r.uchastok) return; // всё уже заполнено — восстанавливать нечего
+    const match = zayavkaLookup.get(r.zayavka);
+    if(!match) return;
+    let touched = false;
+    if(!r.op && match.op){ r.op = match.op; touched = true; }
+    if(!r.project && match.project){ r.project = match.project; touched = true; }
+    if(!r.uchastok && match.uchastok){
+      r.uchastok = canonUchastok(match.uchastok);
+      r.vid = getVid(r.uchastok);
+      touched = true;
+    }
+    if(touched) filled++;
+  });
+  return filled;
+}
+function onDataReady(){
+  if(collectionData.length===0) return;
+  document.getElementById("empty-placeholder").style.display = "none";
+  document.getElementById("filters").style.display = "flex";
+  document.getElementById("tabs").style.display = "flex";
+  document.getElementById("tab-dashboard").classList.add("active");
+  document.getElementById("stamp").innerHTML = 'Обновлено: <b>' + new Date().toLocaleString("ru-RU") + '</b>';
+  document.getElementById("print-btn").style.display = "";
+
+  const filled = backfillFromReport();
+  const statusEl = document.getElementById("status-collection");
+  statusEl.textContent = "Загружено строк: " + collectionData.length +
+    (filled>0 ? ` (восстановлено ОП/Проект/Участок по номеру заявки: ${filled})` : "");
+
+  populateFilterOptions();
+  transferResolutions = resolveTransfers();
+  renderAll();
+}
+document.getElementById("print-btn").addEventListener("click", function(){ window.print(); });
+
+/* ==================== ЭКСПОРТ ТАБЛИЦ В EXCEL ==================== */
+// columns: [{label, value(row)}, ...]; экспортирует именно то, что сейчас отфильтровано/отсортировано и видно в таблице
+function exportRowsToExcel(rows, columns, filenameBase){
+  if(!rows || !rows.length){ alert("Нет данных для экспорта по текущему фильтру."); return; }
+  const data = [columns.map(c=>c.label)].concat(rows.map(r=>columns.map(c=>c.value(r)??"")));
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Данные");
+  const stamp = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `${filenameBase}_${stamp}.xlsx`);
+}
+document.getElementById("export-vrabote-btn").addEventListener("click", function(){
+  exportRowsToExcel(lastVraboteExportRows, [
+    {label:"ФИО", value:r=>r.fio},
+    {label:"ОП", value:r=>r.op},
+    {label:"Проект", value:r=>r.project},
+    {label:"Участок", value:r=>r.uchastok},
+    {label:"Вид", value:r=>r.vid},
+    {label:"Должность", value:r=>r.position},
+    {label:"Гражданство", value:r=>r.citizenship},
+    {label:"Статус", value:r=>r.status},
+    {label:"Дата статуса", value:r=>r.statusDate},
+    {label:"Дата готовности", value:r=>r.readyDate},
+    {label:"КН статуса", value:r=>r.knStatus},
+    {label:"Рекрутер", value:r=>r.recruiter}
+  ], "В_работе");
+});
+document.getElementById("export-zayavki-btn").addEventListener("click", function(){
+  exportRowsToExcel(lastZayavkiExportRows, [
+    {label:"№ заявки", value:r=>r.zayavkaNum},
+    {label:"ОП", value:r=>r.op},
+    {label:"Проект", value:r=>r.project},
+    {label:"Участок", value:r=>r.uchastok},
+    {label:"Вид", value:r=>r.vid},
+    {label:"Должность", value:r=>r.position},
+    {label:"Вакансий", value:r=>r.kolVacancy},
+    {label:"На ОП", value:r=>r.naOPCalc},
+    {label:"Куплен билет", value:r=>r.kuplenBilet},
+    {label:"В работе", value:r=>r.vRabote},
+    {label:"Осталось", value:r=>r.ostalosCalc},
+    {label:"Дедлайн", value:r=>r.dedline}
+  ], "Заявки_открытые");
+});
+
+function populateFilterOptions(){
+  const years = [...new Set(collectionData.map(r=>r.year).filter(y=>y!==null && y>=2000 && y<2050))].sort((a,b)=>a-b);
+  const ops = [...new Set(collectionData.map(r=>r.op).filter(Boolean))].sort();
+  const categories = [...new Set(collectionData.map(r=>r.category).filter(Boolean))].sort();
+  const recruiters = [...new Set(collectionData.map(r=>r.recruiter).filter(Boolean))].sort();
+  const vids = [...new Set(collectionData.map(r=>r.vid).filter(Boolean))].sort();
+
+  fillSelect("f-year", years);
+  fillSelect("f-op", ops);
+  fillSelect("f-vid", vids);
+  fillSelect("f-category", categories);
+  fillSelect("f-recruiter", recruiters);
+
+  // по умолчанию выбираем 2026 год, если он есть в данных
+  if(years.includes(2026)){
+    document.getElementById("f-year").value = 2026;
+  }
+  refreshProjectOptions();
+  refreshPeriodOptions();
+}
+function refreshProjectOptions(){
+  const opVal = document.getElementById("f-op").value;
+  // проекты фильтруем по выбранному ОП — иначе список смешивает проекты всех площадок
+  const pool = opVal ? collectionData.filter(r=>r.op===opVal) : collectionData;
+  const projects = [...new Set(pool.map(r=>r.project).filter(Boolean))].sort();
+  fillSelect("f-project", projects);
+}
+document.getElementById("f-op").addEventListener("change", function(){
+  document.getElementById("f-project").value = ""; // сброс проекта при смене ОП, чтобы не остался проект от другой площадки
+  refreshProjectOptions();
+  renderAll();
+});
+document.getElementById("f-year").addEventListener("change", function(){ refreshPeriodOptions(); renderAll(); });
+function fillSelect(id, values, isWeek){
+  const sel = document.getElementById(id);
+  const current = sel.value;
+  sel.innerHTML = '<option value="">' + (isWeek ? "—" : "Все") + '</option>' +
+    values.map(v=>'<option value="'+esc(v)+'">'+(isWeek?"КН "+esc(v):esc(v))+'</option>').join("");
+  sel.value = current;
+}
+
+/* ==================== ФИЛЬТРАЦИЯ ==================== */
+function getFilters(){
+  return {
+    year: document.getElementById("f-year").value ? parseFloat(document.getElementById("f-year").value) : null,
+    op: document.getElementById("f-op").value,
+    vid: document.getElementById("f-vid").value,
+    project: document.getElementById("f-project").value,
+    position: normKey(document.getElementById("f-position").value),
+    category: document.getElementById("f-category").value,
+    recruiter: document.getElementById("f-recruiter").value
+  };
+}
+function matchesBaseFilters(r, f){
+  if(f.op && r.op!==f.op) return false;
+  if(f.vid && r.vid!==f.vid) return false;
+  if(f.project && r.project!==f.project) return false;
+  if(f.position && !normKey(r.position).includes(f.position)) return false;
+  if(f.category && r.category && r.category!==f.category) return false;
+  if(f.recruiter && r.recruiter && r.recruiter!==f.recruiter) return false;
+  return true;
+}
+
+["f-vid","f-project","f-position","f-category","f-recruiter"].forEach(id=>{
+  document.getElementById(id).addEventListener("input", renderAll);
+  document.getElementById(id).addEventListener("change", renderAll);
+});
+document.getElementById("reset-filters").addEventListener("click", function(){
+  document.getElementById("f-year").value = "";
+  document.getElementById("f-op").value = "";
+  document.getElementById("f-vid").value = "";
+  document.getElementById("f-project").value = "";
+  document.getElementById("f-position").value = "";
+  document.getElementById("f-category").value = "";
+  document.getElementById("f-recruiter").value = "";
+  refreshProjectOptions();
+  refreshPeriodOptions();
+  renderAll();
+});
+
+/* ==================== ТАБЫ ==================== */
+document.querySelectorAll(".tab-btn").forEach(btn=>{
+  btn.addEventListener("click", function(){
+    document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+    document.querySelectorAll(".tab-panel").forEach(p=>p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("tab-"+btn.dataset.tab).classList.add("active");
+    activeTab = btn.dataset.tab;
+  });
+});
+
+/* ==================== РЕНДЕР ==================== */
+function renderAll(){
+  if(collectionData.length===0) return;
+  const f = getFilters();
+  renderZayavki(f);
+  renderVRabote(f);
+  renderChartOp(f);
+  renderPivot(f);
+  renderWeekly(f);
+  renderRefusals(f);
+  renderStale(f);
+  renderUnlinkedZayavki(f);
+  renderRecruiters(f);
+  renderTransferEffectiveness(f);
+  renderDashboard(f);
+}
+
+const NA_OP_3 = ["Трудоустроен","Перевод","на ОП"]; // именно для колонки "На ОП" на вкладке "Заявки" — своя группа, не путать с STATUS_GROUP_2 на Дашборде
+let lastZayavkiExportRows = []; // строки, реально отображённые в таблице "Заявки" — источник для кнопки "Экспорт в Excel"
+function renderZayavki(f){
+  const rows = reportData.filter(r=> r.status==="Открыта" && matchesBaseFilters(r, f)); // открытая заявка видна всегда, независимо от года создания
+  document.getElementById("cnt-zayavki").textContent = rows.length + " шт.";
+  const tbl = document.getElementById("tbl-zayavki");
+  if(!reportData.length){
+    tbl.innerHTML = '<tr><td class="empty-state">Файл «Отчет» не загружен — раздел недоступен.</td></tr>';
+    lastZayavkiExportRows = [];
+    return;
+  }
+  if(!rows.length){ tbl.innerHTML = '<tr><td class="empty-state">Нет открытых заявок по текущему фильтру.</td></tr>'; lastZayavkiExportRows = []; return; }
+
+  // индекс кандидатов по номеру заявки — для пересчёта "На ОП"/"Куплен билет"/"Осталось" именно по кандидатам, а не по формуле файла
+  const byZayavka = new Map();
+  collectionData.forEach(r=>{
+    if(!r.zayavka || /^без заявки$/i.test(r.zayavka)) return;
+    if(!byZayavka.has(r.zayavka)) byZayavka.set(r.zayavka, []);
+    byZayavka.get(r.zayavka).push(r);
+  });
+  const augmented = rows.map(r=>{
+    const linked = byZayavka.get(r.zayavkaNum) || [];
+    const naOPCalc = linked.filter(c=>NA_OP_3.includes(c.status)).length;
+    const kuplenBilet = linked.filter(c=>c.status==="Куплен билет").length;
+    const ostalosCalc = (r.kolVacancy||0) - kuplenBilet - naOPCalc;
+    return {...r, naOPCalc, kuplenBilet, ostalosCalc};
+  });
+
+  const sum = (field)=> augmented.reduce((acc,r)=> acc + (r[field]||0), 0);
+  const sorted = applySorting("tbl-zayavki", augmented, {
+    zayavkaNum: r=>r.zayavkaNum, op: r=>r.op, project: r=>r.project, position: r=>r.position,
+    kolVacancy: r=>r.kolVacancy??-Infinity, naOPCalc: r=>r.naOPCalc, kuplenBilet: r=>r.kuplenBilet, vRabote: r=>r.vRabote??-Infinity,
+    ostalosCalc: r=>r.ostalosCalc, dedline: r=>r.dedline
+  });
+  lastZayavkiExportRows = sorted;
+  tbl.innerHTML =
+    '<thead><tr>'+
+    sortableHeader("tbl-zayavki","№ заявки","zayavkaNum")+
+    sortableHeader("tbl-zayavki","ОП","op")+
+    sortableHeader("tbl-zayavki","Проект","project")+
+    '<th>Участок / Вид</th>'+
+    sortableHeader("tbl-zayavki","Должность","position")+
+    sortableHeader("tbl-zayavki","Вакансий","kolVacancy","num")+
+    sortableHeader("tbl-zayavki","На ОП","naOPCalc","num")+
+    sortableHeader("tbl-zayavki","Куплен билет","kuplenBilet","num")+
+    sortableHeader("tbl-zayavki","В работе","vRabote","num")+
+    sortableHeader("tbl-zayavki","Осталось","ostalosCalc","num")+
+    sortableHeader("tbl-zayavki","Дедлайн","dedline")+
+    '</tr></thead><tbody>'+
+    sorted.map(r=>`<tr>
+      <td>${esc(r.zayavkaNum)}</td>
+      <td>${esc(r.op)}</td>
+      <td>${esc(r.project)}</td>
+      <td>${esc(r.uchastok)} <span class="badge blue">${esc(r.vid)}</span></td>
+      <td>${esc(r.position)}</td>
+      <td class="num">${r.kolVacancy??""}</td>
+      <td class="num">${r.naOPCalc}</td>
+      <td class="num">${r.kuplenBilet}</td>
+      <td class="num">${r.vRabote??""}</td>
+      <td class="num">${r.ostalosCalc}</td>
+      <td>${esc(r.dedline)}</td>
+    </tr>`).join("") + "</tbody><tfoot>" +
+    `<tr style="background:var(--blueprint-soft); font-weight:700;">
+      <td colspan="5">Итого по фильтру (${rows.length} заявок)</td>
+      <td class="num">${sum('kolVacancy')}</td>
+      <td class="num">${sum('naOPCalc')}</td>
+      <td class="num">${sum('kuplenBilet')}</td>
+      <td class="num">${sum('vRabote')}</td>
+      <td class="num">${sum('ostalosCalc')}</td>
+      <td></td>
+    </tr>` + "</tfoot>";
+}
+
+let lastVraboteExportRows = []; // строки, реально отображённые в таблице "В работе" — источник для кнопки "Экспорт в Excel"
+function renderVRabote(f){
+  const rows = collectionData.filter(r=> ACTIVE_STATUSES.includes(r.status) && matchesBaseFilters(r, f) && (!f.year || r.knStatusYear===f.year));
+  document.getElementById("cnt-vrabote").textContent = rows.length + " чел.";
+  const tbl = document.getElementById("tbl-vrabote");
+  if(!rows.length){ tbl.innerHTML = '<tr><td class="empty-state">Нет кандидатов «в работе» по текущему фильтру.</td></tr>'; lastVraboteExportRows = []; return; }
+  const sorted = applySorting("tbl-vrabote", rows, {
+    fio: r=>r.fio, op: r=>r.op, project: r=>r.project, position: r=>r.position, citizenship: r=>r.citizenship,
+    status: r=>r.status, statusDate: r=>parseRUDate(r.statusDate)||new Date(0),
+    knStatus: r=>r.knStatus??-Infinity, readyDate: r=>parseRUDate(r.readyDate)||new Date(0), recruiter: r=>r.recruiter
+  });
+  lastVraboteExportRows = sorted;
+  tbl.innerHTML =
+    '<thead><tr>'+
+    sortableHeader("tbl-vrabote","ФИО","fio")+
+    sortableHeader("tbl-vrabote","ОП","op")+
+    sortableHeader("tbl-vrabote","Проект","project")+
+    '<th>Участок / Вид</th>'+
+    sortableHeader("tbl-vrabote","Должность","position")+
+    sortableHeader("tbl-vrabote","Гражданство","citizenship")+
+    sortableHeader("tbl-vrabote","Статус","status")+
+    sortableHeader("tbl-vrabote","Дата статуса","statusDate")+
+    sortableHeader("tbl-vrabote","КН стат.","knStatus","num")+
+    sortableHeader("tbl-vrabote","Дата готовности","readyDate")+
+    sortableHeader("tbl-vrabote","Рекрутер","recruiter")+
+    '</tr></thead><tbody>'+
+    sorted.map(r=>`<tr>
+      <td>${esc(r.fio)}</td>
+      <td>${esc(r.op)}</td>
+      <td>${esc(r.project)}</td>
+      <td>${esc(r.uchastok)} <span class="badge blue">${esc(r.vid)}</span></td>
+      <td>${esc(r.position)}</td>
+      <td>${esc(r.citizenship)}</td>
+      <td><span class="badge ${statusBadgeClass(r.status)}">${esc(r.status)}</span></td>
+      <td>${esc(r.statusDate)}</td>
+      <td class="num">${r.knStatus??""}</td>
+      <td>${esc(r.readyDate)}</td>
+      <td>${esc(r.recruiter)}</td>
+    </tr>`).join("") + "</tbody>";
+}
+
+/* ==================== СОРТИРОВКА ТАБЛИЦ ПО КЛИКУ НА ЗАГОЛОВОК ==================== */
+const sortState = {}; // tableId -> {key, dir}
+function sortableHeader(tableId, label, key, extraClass){
+  const state = sortState[tableId];
+  const active = state && state.key===key;
+  const arrow = active ? (state.dir===1 ? " ▲" : " ▼") : "";
+  const cls = extraClass ? ("sortable " + extraClass) : "sortable";
+  return `<th class="${cls}" data-table="${tableId}" data-key="${esc(key)}">${esc(label)}${arrow}</th>`;
+}
+function applySorting(tableId, rows, accessors){
+  const state = sortState[tableId];
+  if(!state || !accessors[state.key]) return rows;
+  const acc = accessors[state.key];
+  return [...rows].sort((a,b)=>{
+    let av = acc(a), bv = acc(b);
+    if(av===null||av===undefined) av = "";
+    if(bv===null||bv===undefined) bv = "";
+    if(typeof av==="string") av = av.toLowerCase();
+    if(typeof bv==="string") bv = bv.toLowerCase();
+    if(av<bv) return -1*state.dir;
+    if(av>bv) return 1*state.dir;
+    return 0;
+  });
+}
+document.addEventListener("click", function(e){
+  const th = e.target.closest("th.sortable");
+  if(!th) return;
+  const tableId = th.dataset.table, key = th.dataset.key;
+  const cur = sortState[tableId];
+  if(cur && cur.key===key){ cur.dir *= -1; } else { sortState[tableId] = {key, dir:1}; }
+  renderAll();
+});
+
+function renderStackedColumnChart(el, entries){
+  if(!entries.length){ el.innerHTML = '<div class="empty-state">Нет данных для диаграммы.</div>'; return; }
+  const w = Math.max(500, entries.length*90), h = 310, padL = 40, padR = 20, padT = 46, padB = 60;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
+  const maxV = Math.max(1, ...entries.map(e=>e.total));
+  const barGap = 14;
+  const barW = (plotW/entries.length) - barGap;
+  const closedColor = "var(--blueprint)", remainingColor = "var(--silver)";
+  const MIN_LABEL_SEG = 16; // сегмент выше этой высоты — подпись по центру сегмента (белым); ниже — подпись переносится наверх, рядом с итогом
+  const yBase = padT + plotH;
+  // сжимающая шкала (корень) — уменьшает разрыв между самым большим и самым маленьким столбцом,
+  // при этом порядок величин сохраняется и доля "закрыли/осталось" внутри каждого столбца считается от его
+  // РЕАЛЬНОГО (несжатого) итога, чтобы сама заливка сегментов не искажалась
+  // каждый ненулевой столбец получает не меньше 22% высоты графика — иначе маленькие ОП (3-14 вакансий)
+  // рядом с Усть-Лугой (1258) превращаются в полоску толщиной в пиксель. Дальше — сжатая (корень) шкала.
+  const MIN_BAR_FRAC = 0.22;
+  const scaleH = (v)=> v>0 ? plotH * (MIN_BAR_FRAC + (1-MIN_BAR_FRAC) * Math.sqrt(v)/Math.sqrt(maxV)) : 0;
+  let svg = `<svg viewBox="0 0 ${w} ${h}" style="width:100%; height:auto; font-family:var(--font-ui);">`;
+  entries.forEach((e,i)=>{
+    const x = padL + i*(plotW/entries.length) + barGap/2;
+    const cx = x + barW/2; // центр столбца — все подписи выравниваем по нему
+    const totalH = scaleH(e.total);
+    let closedH = e.total ? (e.closed/e.total)*totalH : 0;
+    // если синий сегмент слишком тонкий для своей же подписи — раздвигаем его до минимума за счёт серого,
+    // чтобы цифра "закрыли" всегда была внутри синей заливки, а не улетала наверх столбца
+    if(e.closed>0 && closedH < MIN_LABEL_SEG) closedH = Math.min(totalH, MIN_LABEL_SEG);
+    const remainH = totalH - closedH;
+    const yTop = padT + plotH - totalH;
+    const yClosedTop = padT + plotH - closedH;
+    const remaining = e.total - e.closed;
+
+    // верхний сегмент (осталось)
+    if(remainH>0.5) svg += `<rect x="${x}" y="${yTop}" width="${barW}" height="${remainH}" fill="${remainingColor}" rx="2"/>`;
+    // нижний сегмент (закрыли)
+    if(closedH>0.5) svg += `<rect x="${x}" y="${yClosedTop}" width="${barW}" height="${closedH}" fill="${closedColor}" rx="2"/>`;
+
+    // "осталось" — по центру своего сегмента, если он достаточно высокий; "закрыли" — теперь всегда внутри (см. выше)
+    if(remaining>0 && remainH >= MIN_LABEL_SEG){
+      svg += `<text x="${cx}" y="${yTop+remainH/2+4}" font-size="10" text-anchor="middle" fill="var(--ink)" font-family="var(--font-mono)" font-weight="700">${remaining}</text>`;
+    }
+    if(e.closed>0){
+      svg += `<text x="${cx}" y="${yClosedTop+closedH/2+4}" font-size="10" text-anchor="middle" fill="#fff" font-family="var(--font-mono)" font-weight="700">${e.closed}</text>`;
+    }
+
+    // слишком тонкий серый сегмент — подпись не помещается внутри, переносим наверх столбца,
+    // а не под ось, чтобы не наезжала на повёрнутые подписи ОП снизу
+    const stacked = [];
+    if(remaining>0 && remainH < MIN_LABEL_SEG) stacked.push({text:remaining, color:"var(--ink-soft)"});
+    let curY = yTop - 10;
+    stacked.forEach(lbl=>{
+      svg += `<text x="${cx}" y="${curY}" font-size="10" text-anchor="middle" fill="${lbl.color}" font-family="var(--font-mono)" font-weight="700">${lbl.text}</text>`;
+      curY -= 12;
+    });
+    // итого — всегда самая верхняя подпись над столбцом, по центру
+    svg += `<text x="${cx}" y="${curY}" font-size="11" text-anchor="middle" fill="var(--ink)" font-family="var(--font-mono)" font-weight="700">${e.total}</text>`;
+
+    svg += `<text x="${cx}" y="${h-36}" font-size="10.5" text-anchor="middle" fill="var(--ink-soft)" transform="rotate(-20 ${cx} ${h-36})">${esc(e.label)}</text>`;
+  });
+  svg += `<line x1="${padL}" y1="${yBase}" x2="${w-padR}" y2="${yBase}" stroke="var(--line-strong)" stroke-width="1"/>`;
+  svg += `</svg>`;
+  svg += `<div style="display:flex; gap:16px; margin-top:8px; font-size:11.5px; color:var(--ink-soft);">
+    <span><span style="display:inline-block; width:10px; height:10px; background:var(--blueprint); border-radius:2px; margin-right:5px;"></span>Закрыли (Трудоустроен/Перевод/на ОП/Куплен билет)</span>
+    <span><span style="display:inline-block; width:10px; height:10px; background:var(--silver); border-radius:2px; margin-right:5px;"></span>Осталось</span>
+  </div>`;
+  el.innerHTML = svg;
+}
+function renderRing(containerId, percent, color, centerText){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  const r = 42, stroke = 10, c = 2*Math.PI*r;
+  const pct = Math.max(0, Math.min(100, percent||0));
+  const offset = c * (1 - pct/100);
+  const label = centerText!==undefined ? centerText : pct.toFixed(0)+"%";
+  el.innerHTML = `<svg viewBox="0 0 100 100" width="90" height="90">
+    <circle cx="50" cy="50" r="${r}" fill="none" stroke="var(--line)" stroke-width="${stroke}"/>
+    <circle cx="50" cy="50" r="${r}" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-linecap="round"
+      stroke-dasharray="${c.toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}"
+      transform="rotate(-90 50 50)" style="transition:stroke-dashoffset .4s ease;"/>
+    <text x="50" y="56" text-anchor="middle" font-family="var(--font-mono)" font-size="20" font-weight="700" fill="var(--ink)">${label}</text>
+  </svg>`;
+}
+function renderBarChart(el, entries, color){
+  if(!entries.length){ el.innerHTML = '<div class="empty-state">Нет данных для диаграммы.</div>'; return; }
+  const max = Math.max(...entries.map(e=>e[1]));
+  const barColor = color || "var(--blueprint)";
+  el.innerHTML = entries.map(([label,count])=>{
+    const pct = Math.round((count/max)*100);
+    return `<div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+      <div style="width:170px; font-size:12.5px; text-align:right; flex-shrink:0;">${esc(label)}</div>
+      <div style="flex:1; background:var(--paper); border-radius:2px; overflow:hidden;">
+        <div style="width:${pct}%; background:${barColor}; height:22px; border-radius:2px; display:flex; align-items:center; padding-left:8px;">
+          <span style="color:#fff; font-family:var(--font-mono); font-size:11.5px;">${count}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function renderChartOp(f){
+  const rows = collectionData.filter(r=> ACTIVE_STATUSES.includes(r.status) && matchesBaseFilters(r, f) && (!f.year || r.knStatusYear===f.year));
+  const byOp = {};
+  rows.forEach(r=>{ byOp[r.op] = (byOp[r.op]||0)+1; });
+  const entries = Object.entries(byOp).sort((a,b)=>b[1]-a[1]);
+  document.getElementById("cnt-chart-op").textContent = rows.length + " чел.";
+  renderBarChart(document.getElementById("chart-op"), entries);
+}
+
+function renderPivot(f){
+  const rows = collectionData.filter(r=> ACTIVE_STATUSES.includes(r.status) && matchesBaseFilters(r, f) && (!f.year || r.knStatusYear===f.year));
+  const today = new Date(); today.setHours(0,0,0,0);
+  const horizon = new Date(today.getTime() + 31*24*60*60*1000);
+  const withDate = rows.filter(r=>{
+    if(!r.readyDate) return false;
+    const d = parseRUDate(r.readyDate);
+    return d && d>=today && d<=horizon;
+  });
+  const withoutDate = rows.filter(r=>!r.readyDate || !parseRUDate(r.readyDate));
+
+  document.getElementById("cnt-pivot").textContent = (withDate.length+withoutDate.length) + " чел.";
+  const tbl = document.getElementById("tbl-pivot");
+  const visibleRows = withDate.concat(withoutDate); // именно то, что реально попадёт в таблицу
+  if(!visibleRows.length){ tbl.innerHTML = '<tr><td class="empty-state">Нет данных для сводной таблицы в пределах горизонта планирования (1 месяц).</td></tr>'; return; }
+
+  const positions = [...new Set(visibleRows.map(r=>r.position))].sort();
+
+  // группируем даты по неделям: weekKey ("2026-W34") -> Set дат ("DD.MM.YYYY"), с сохранением сортировки
+  const weekToDates = new Map(); // weekKey -> Map(dateKey -> timestamp) для сортировки
+  withDate.forEach(r=>{
+    const d = parseRUDate(r.readyDate);
+    const kn = isoWeekParts(d);
+    const weekKey = kn.year + "-W" + String(kn.week).padStart(2,"0");
+    const dateKey = String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."+d.getFullYear();
+    if(!weekToDates.has(weekKey)) weekToDates.set(weekKey, new Map());
+    weekToDates.get(weekKey).set(dateKey, d.getTime());
+  });
+  const weekKeysSorted = [...weekToDates.keys()].sort();
+  const hasNoDate = withoutDate.length>0;
+
+  // группируем кандидатов по ячейке (должность+дата) — для drill-down по клику
+  const cellCandidates = {};
+  rows.forEach(r=>{
+    let key;
+    if(r.readyDate && parseRUDate(r.readyDate)){
+      const d = parseRUDate(r.readyDate);
+      key = String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."+d.getFullYear();
+    } else { key = "—"; }
+    const cellKey = r.position+"|||"+key;
+    (cellCandidates[cellKey] = cellCandidates[cellKey] || []).push(r);
+  });
+  window.__pivotCells = cellCandidates;
+
+  // строим двухуровневый заголовок: КН недели (colspan) сверху, конкретные даты + "Итого КН" снизу
+  let headRow1 = '<tr><th class="rowlabel" rowspan="2">Должность</th>';
+  let headRow2 = '<tr>';
+  const weekGroups = []; // [{weekKey, dates:[...]}]
+  const weekStartDates = new Set(); // первая дата каждой недели — для визуальной границы
+  weekKeysSorted.forEach(weekKey=>{
+    const dateMap = weekToDates.get(weekKey);
+    const dates = [...dateMap.keys()].sort((a,b)=>dateMap.get(a)-dateMap.get(b));
+    if(dates.length) weekStartDates.add(dates[0]);
+    weekGroups.push({weekKey, dates});
+    // colspan = кол-во дат + 1 (промежуточный итог входит в ту же КН-группу визуально)
+    headRow1 += `<th colspan="${dates.length+1}" style="text-align:center; border-left:2px solid var(--line-strong);">${weekKey.replace("-W"," · КН ")}</th>`;
+    dates.forEach((dk,i)=>{
+      headRow2 += `<th style="${i===0?'border-left:2px solid var(--line-strong);':''}">${dk.slice(0,5)}</th>`;
+    });
+    headRow2 += `<th style="background:#FAFAF7; color:var(--ink); font-weight:700;">Итого КН</th>`;
+  });
+  if(hasNoDate){
+    headRow1 += '<th rowspan="2" style="border-left:2px solid var(--line-strong);">Без даты</th>';
+  }
+  headRow1 += '<th rowspan="2">Итого</th></tr>';
+  headRow2 += '</tr>';
+
+  let html = '<thead>' + headRow1 + headRow2 + '</thead><tbody>';
+  positions.forEach(p=>{
+    let total = 0;
+    let cells = "";
+    weekGroups.forEach(group=>{
+      let weekSubtotal = 0;
+      group.dates.forEach((dk,i)=>{
+        const key = p+"|||"+dk;
+        const list = cellCandidates[key] || [];
+        weekSubtotal += list.length;
+        const borderStyle = weekStartDates.has(dk) ? 'border-left:2px solid var(--line-strong);' : '';
+        const cls = list.length
+          ? `style="cursor:pointer; ${borderStyle}" class="pivot-cell" data-key="${esc(key)}"`
+          : (borderStyle ? `style="${borderStyle}"` : "");
+        cells += `<td ${cls}>${list.length||""}</td>`;
+      });
+      total += weekSubtotal;
+      cells += `<td style="background:#FAFAF7; font-weight:700;">${weekSubtotal||""}</td>`;
+    });
+    if(hasNoDate){
+      const key = p+"|||—";
+      const list = cellCandidates[key] || [];
+      total += list.length;
+      const cls = list.length ? 'style="cursor:pointer; border-left:2px solid var(--line-strong);" class="pivot-cell" data-key="'+esc(key)+'"' : 'style="border-left:2px solid var(--line-strong);"';
+      cells += `<td ${cls}>${list.length||""}</td>`;
+    }
+    html += `<tr><td class="rowlabel">${esc(p)}</td>${cells}<td><b>${total}</b></td></tr>`;
+  });
+  html += "</tbody>";
+  tbl.innerHTML = html;
+
+  tbl.querySelectorAll(".pivot-cell").forEach(td=>{
+    td.addEventListener("click", function(){
+      const key = td.dataset.key;
+      const list = window.__pivotCells[key] || [];
+      const [pos, dateKey] = key.split("|||");
+      document.getElementById("pivot-modal-title").textContent = `${pos} — ${dateKey==="—"?"без даты готовности":dateKey} (${list.length} чел.)`;
+      document.getElementById("pivot-modal-table").innerHTML =
+        '<thead><tr><th>ФИО</th><th>ОП</th><th>Проект</th><th>Гражданство</th><th>Источник</th><th>Статус</th><th>Дата готовности</th><th>Рекрутер</th></tr></thead><tbody>' +
+        list.map(r=>`<tr><td>${esc(r.fio)}</td><td>${esc(r.op)}</td><td>${esc(r.project)}</td><td>${esc(r.citizenship)}</td><td>${esc(r.source)}</td><td><span class="badge ${statusBadgeClass(r.status)}">${esc(r.status)}</span></td><td>${esc(r.readyDate)}</td><td>${esc(r.recruiter)}</td></tr>`).join("") +
+        "</tbody>";
+      document.getElementById("pivot-modal").style.display = "flex";
+    });
+  });
+}
+document.getElementById("pivot-modal-close").addEventListener("click", function(){
+  document.getElementById("pivot-modal").style.display = "none";
+});
+document.getElementById("pivot-modal").addEventListener("click", function(e){
+  if(e.target.id==="pivot-modal") document.getElementById("pivot-modal").style.display = "none";
+});
+
+const SENT_STATUSES = ["на ОП","Трудоустроен","Куплен билет"];
+
+// Группировка для блока "Активность в разрезе статусов" (подтверждено пользователем)
+const STATUS_GROUP_1 = ["Согласование","Сбор документов","Служба безопасности","Медосмотр","Оффер","Мобилизация","на ЦТС"]; // "В работе"
+const STATUS_GROUP_RESERVE = ["Резерв"]; // показывается рядом с группой 1, но НЕ входит в её сумму
+const STATUS_GROUP_2 = ["Куплен билет","Трудоустроен","на ОП"]; // "Финал"
+const STATUS_GROUP_3 = ["Отказ"];
+const STATUS_GROUP_4 = ["Передан др. рекрутеру","Перевод"]; // "Прочее"
+
+// Цвет бейджа статуса кандидата в таблицах — по стадии воронки, не один и тот же цвет на всё подряд:
+// ранние административные этапы — синий (нейтрально), поздние/предзакрывающие — янтарный (скоро закроется),
+// успешный исход — зелёный, отказ/резерв — красный. Зелёный/красный намеренно совпадают с уже принятой
+// цветовой семантикой (успех/проблема) и не конфликтуют с ней.
+const FUNNEL_EARLY_STATUSES = ["Согласование","Сбор документов","Служба безопасности"];
+const FUNNEL_LATE_STATUSES = ["Медосмотр","Оффер","Мобилизация","на ЦТС"];
+function statusBadgeClass(status){
+  if(STATUS_GROUP_2.includes(status)) return "ok";
+  if(status==="Отказ" || status==="Резерв") return "warn";
+  if(FUNNEL_EARLY_STATUSES.includes(status)) return "blue";
+  if(FUNNEL_LATE_STATUSES.includes(status)) return "amber";
+  return "amber";
+}
+
+// Универсальная проверка попадания даты кандидата в выбранный период (день/неделя/месяц)
+function matchesPeriod(r, kind){
+  // kind: 'response' -> дата отклика, 'status' -> дата статуса, 'ready' -> дата готовности
+  const rawDateField = {response:"responseDate", status:"statusDate", ready:"readyDate"}[kind];
+  const monthField = {response:"respMonth", status:"statMonth", ready:"readyMonth"}[kind];
+  const monthYearField = {response:"respMonthYear", status:"statMonthYear", ready:"readyMonthYear"}[kind];
+  const weekField = {response:"knResponse", status:"knStatus", ready:"knReady"}[kind];
+  const weekYearField = {response:"knResponseYear", status:"knStatusYear", ready:"knReadyYear"}[kind];
+
+  const type = document.getElementById("period-type").value;
+  if(type==="all") return true; // без ограничения по дате — считаем всех, вне зависимости от периода
+  if(type==="day"){
+    const target = document.getElementById("period-day").value; // YYYY-MM-DD
+    if(!target) return false;
+    const d = parseRUDate(r[rawDateField]);
+    if(!d) return false;
+    const key = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+    return key===target;
+  }
+  if(type==="month"){
+    const val = document.getElementById("period-month").value; // "YYYY-M"
+    if(!val) return false;
+    const [y,m] = val.split("-").map(Number);
+    return r[monthYearField]===y && r[monthField]===m;
+  }
+  // неделя (по умолчанию)
+  const val = document.getElementById("period-week").value; // "YYYY-W"
+  if(!val) return false;
+  const [y,w] = val.split("-W").map(Number);
+  const py = r[weekYearField];
+  const pw = r[weekField];
+  return py===y && pw===w;
+}
+function periodIsSet(){
+  const type = document.getElementById("period-type").value;
+  if(type==="all") return true;
+  if(type==="day") return !!document.getElementById("period-day").value;
+  if(type==="month") return !!document.getElementById("period-month").value;
+  return !!document.getElementById("period-week").value;
+}
+function refreshPeriodOptions(){
+  const yearVal = document.getElementById("f-year").value;
+  const year = yearVal ? parseFloat(yearVal) : null;
+  // недели и месяцы считаем только внутри выбранного глобального года — иначе редкие ошибочные годы (напр. 2066) перетягивают дефолт
+  const weekSet = new Set();
+  const monthSet = new Set();
+  collectionData.forEach(r=>{
+    if(r.knStatus!==null && r.knStatus<=53 && (year===null || r.knStatusYear===year)) weekSet.add(r.knStatusYear+"-W"+String(r.knStatus).padStart(2,"0"));
+    if(r.knResponse!==null && r.knResponse<=53 && (year===null || r.knResponseYear===year)) weekSet.add(r.knResponseYear+"-W"+String(r.knResponse).padStart(2,"0"));
+    if(r.knReady!==null && r.knReady<=53 && (year===null || r.knReadyYear===year)) weekSet.add(r.knReadyYear+"-W"+String(r.knReady).padStart(2,"0"));
+    if(r.statMonth!==null && (year===null || r.statMonthYear===year)) monthSet.add(r.statMonthYear+"-"+r.statMonth);
+    if(r.respMonth!==null && (year===null || r.respMonthYear===year)) monthSet.add(r.respMonthYear+"-"+r.respMonth);
+    if(r.readyMonth!==null && (year===null || r.readyMonthYear===year)) monthSet.add(r.readyMonthYear+"-"+r.readyMonth);
+  });
+  const weeks = [...weekSet].sort();
+  // по умолчанию — ТЕКУЩАЯ календарная неделя (от сегодняшней даты), а не максимум из данных
+  const todayKN = isoWeekParts(new Date());
+  const todayWeekKey = todayKN.year+"-W"+String(todayKN.week).padStart(2,"0");
+  if((year===null || todayKN.year===year) && !weeks.includes(todayWeekKey)) weeks.push(todayWeekKey);
+  weeks.sort();
+  const months = [...monthSet].sort((a,b)=>{
+    const [ay,am]=a.split("-").map(Number), [by,bm]=b.split("-").map(Number);
+    return ay-by || am-bm;
+  });
+  const weekSel = document.getElementById("period-week");
+  weekSel.innerHTML = weeks.map(w=>`<option value="${w}">${w.replace("-W"," · КН ")}</option>`).join("");
+  if(year===null || todayKN.year===year) weekSel.value = todayWeekKey;
+  else if(weeks.length) weekSel.value = weeks[weeks.length-1];
+  const monthSel = document.getElementById("period-month");
+  monthSel.innerHTML = months.map(m=>{ const [y,mm]=m.split("-").map(Number); return `<option value="${m}">${MONTH_NAMES[mm]} ${y}</option>`; }).join("");
+  if(months.length) monthSel.value = months[months.length-1];
+
+  // День: по умолчанию берём последнюю дату отклика в данных (в пределах выбранного года, если он задан)
+  let maxRespDate = null;
+  collectionData.forEach(r=>{
+    if(year!==null && r.respMonthYear!==year) return;
+    const d = parseRUDate(r.responseDate);
+    if(d && (!maxRespDate || d>maxRespDate)) maxRespDate = d;
+  });
+  if(maxRespDate){
+    const iso = maxRespDate.getFullYear()+"-"+String(maxRespDate.getMonth()+1).padStart(2,"0")+"-"+String(maxRespDate.getDate()).padStart(2,"0");
+    document.getElementById("period-day").value = iso;
+  }
+}
+document.getElementById("period-type").addEventListener("change", function(){
+  const type = this.value;
+  document.getElementById("period-week-field").style.display = type==="week" ? "" : "none";
+  document.getElementById("period-day-field").style.display = type==="day" ? "" : "none";
+  document.getElementById("period-month-field").style.display = type==="month" ? "" : "none";
+  renderAll();
+});
+["period-week","period-day","period-month"].forEach(id=>{
+  document.getElementById(id).addEventListener("change", renderAll);
+});
+
+function renderWeekly(f){
+  const periodOk = periodIsSet();
+
+  // Активность за период: КН статус в периоде
+  const activityRows = !periodOk ? [] : collectionData.filter(r=> matchesBaseFilters(r,f) && matchesPeriod(r, "status"));
+  document.getElementById("m-week-activity").textContent = activityRows.length;
+
+  // Новые отклики за период: дата отклика в периоде (не зависит от текущего статуса)
+  const responseRows = !periodOk ? [] : collectionData.filter(r=> matchesBaseFilters(r,f) && matchesPeriod(r, "response"));
+  document.getElementById("m-week-response").textContent = responseRows.length;
+
+  // Направлено за период: статус "на ОП" / "Трудоустроен" / "Куплен билет", проставленный в периоде
+  const sentRows = !periodOk ? [] : collectionData.filter(r=> SENT_STATUSES.includes(r.status) && matchesBaseFilters(r,f) && matchesPeriod(r, "status"));
+  const sentTbl = document.getElementById("tbl-sent");
+  document.getElementById("cnt-sent").textContent = sentRows.length + " чел.";
+  if(!periodOk){
+    sentTbl.innerHTML = '<tr><td class="empty-state">Выберите период выше.</td></tr>';
+  } else if(!sentRows.length){
+    sentTbl.innerHTML = '<tr><td class="empty-state">Никого не направили за выбранный период по текущему фильтру.</td></tr>';
+  } else {
+    const byStatusSent = {};
+    sentRows.forEach(r=>{ byStatusSent[r.status]=(byStatusSent[r.status]||0)+1; });
+    const summary = Object.entries(byStatusSent).map(([s,c])=>`<span class="badge ok" style="margin-right:6px;">${esc(s)}: ${c}</span>`).join("");
+    sentTbl.innerHTML = '<thead><tr><th colspan="7">'+summary+'</th></tr><tr><th>ФИО</th><th>ОП</th><th>Проект</th><th>Должность</th><th>Статус</th><th>Дата статуса</th><th>Рекрутер</th></tr></thead><tbody>' +
+      sentRows.map(r=>`<tr>
+        <td>${esc(r.fio)}</td><td>${esc(r.op)}</td><td>${esc(r.project)}</td><td>${esc(r.position)}</td>
+        <td><span class="badge ok">${esc(r.status)}</span></td><td>${esc(r.statusDate)}</td><td>${esc(r.recruiter)}</td>
+      </tr>`).join("") + "</tbody>";
+  }
+
+  // Готовность к выезду убрана со Сводки — единственный источник теперь пивот на Оперативном отчёте (была дублирующая логика с разным горизонтом)
+
+  // Направлено за период — теперь и headline-карточка тоже, не только таблица снизу
+  document.getElementById("m-week-sent").textContent = sentRows.length;
+
+  // "Куда" — по ОП/проектам
+  const byProject = {};
+  sentRows.forEach(r=>{
+    const key = (r.op||"—") + "|||" + (r.project||"—");
+    byProject[key] = (byProject[key]||0)+1;
+  });
+  const projectTbl = document.getElementById("tbl-sent-by-project");
+  if(!periodOk){
+    projectTbl.innerHTML = '<tr><td class="empty-state">Выберите период выше.</td></tr>';
+  } else if(!sentRows.length){
+    projectTbl.innerHTML = '<tr><td class="empty-state">Нет данных.</td></tr>';
+  } else {
+    const entries = Object.entries(byProject).sort((a,b)=>b[1]-a[1]);
+    projectTbl.innerHTML = '<thead><tr><th>ОП</th><th>Проект</th><th class="num">Кол-во</th></tr></thead><tbody>' +
+      entries.map(([k,c])=>{ const [op,proj]=k.split("|||"); return `<tr><td>${esc(op)}</td><td>${esc(proj)}</td><td class="num">${c}</td></tr>`; }).join("") +
+      "</tbody>";
+  }
+
+  // "Кого" — по должностям
+  const byPosition = {};
+  sentRows.forEach(r=>{ byPosition[r.position||"—"] = (byPosition[r.position||"—"]||0)+1; });
+  const positionTbl = document.getElementById("tbl-sent-by-position");
+  if(!periodOk){
+    positionTbl.innerHTML = '<tr><td class="empty-state">Выберите период выше.</td></tr>';
+  } else if(!sentRows.length){
+    positionTbl.innerHTML = '<tr><td class="empty-state">Нет данных.</td></tr>';
+  } else {
+    const entries = Object.entries(byPosition).sort((a,b)=>b[1]-a[1]);
+    positionTbl.innerHTML = '<thead><tr><th>Должность</th><th class="num">Кол-во</th></tr></thead><tbody>' +
+      entries.map(([p,c])=>`<tr><td>${esc(p)}</td><td class="num">${c}</td></tr>`).join("") +
+      "</tbody>";
+  }
+
+  // список новых откликов периода
+  const respTbl = document.getElementById("tbl-response-list");
+  document.getElementById("cnt-response-list").textContent = responseRows.length + " чел.";
+  if(!periodOk){
+    respTbl.innerHTML = '<tr><td class="empty-state">Выберите период выше.</td></tr>';
+  } else if(!responseRows.length){
+    respTbl.innerHTML = '<tr><td class="empty-state">Нет новых откликов за выбранный период по текущему фильтру.</td></tr>';
+  } else {
+    respTbl.innerHTML = '<thead><tr><th>ФИО</th><th>ОП</th><th>Участок / Вид</th><th>Должность</th><th>Источник</th><th>Дата отклика</th><th>Текущий статус</th><th>Рекрутер</th></tr></thead><tbody>' +
+      responseRows.map(r=>`<tr>
+        <td>${esc(r.fio)}</td>
+        <td>${esc(r.op)}</td>
+        <td>${esc(r.uchastok)} <span class="badge blue">${esc(r.vid)}</span></td>
+        <td>${esc(r.position)}</td>
+        <td>${esc(r.source)}</td>
+        <td>${esc(r.responseDate)}</td>
+        <td><span class="badge ${statusBadgeClass(r.status)}">${esc(r.status)||"—"}</span></td>
+        <td>${esc(r.recruiter)}</td>
+      </tr>`).join("") + "</tbody>";
+  }
+
+  // разбивка активности в разрезе статусов — сгруппировано по 4 категориям + Резерв отдельно (не суммируется)
+  const byStatus = {};
+  activityRows.forEach(r=>{ byStatus[r.status] = (byStatus[r.status]||0)+1; });
+  const statusTbl = document.getElementById("tbl-activity-status");
+  document.getElementById("cnt-activity-status").textContent = !periodOk ? "" : (Object.keys(byStatus).length + " статусов");
+  if(!periodOk){
+    statusTbl.innerHTML = '<tr><td class="empty-state">Выберите период выше.</td></tr>';
+  } else if(!activityRows.length){
+    statusTbl.innerHTML = '<tr><td class="empty-state">Нет активности за выбранный период по текущему фильтру.</td></tr>';
+  } else {
+    const groupRow = (label, statuses, badgeClass, isSubtotal)=>{
+      let html = "";
+      let sum = 0;
+      statuses.forEach(s=>{
+        const c = byStatus[s] || 0;
+        sum += c;
+        if(c>0) html += `<tr><td style="padding-left:24px;"><span class="badge ${badgeClass}">${esc(s)||"Статус не указан"}</span></td><td class="num">${c}</td></tr>`;
+      });
+      const subtotalStyle = isSubtotal===false ? "" : 'style="background:var(--paper); font-weight:700;"';
+      html += `<tr ${subtotalStyle}><td>${esc(label)}</td><td class="num">${sum}</td></tr>`;
+      return {html, sum};
+    };
+    const g1 = groupRow("Итого: В работе", STATUS_GROUP_1, "amber");
+    const gR = groupRow("Резерв (не входит в «В работе»)", STATUS_GROUP_RESERVE, "blue", false);
+    const g2 = groupRow("Итого: Финал (билет / трудоустроен / на ОП)", STATUS_GROUP_2, "ok");
+    const g3 = groupRow("Итого: Отказ", STATUS_GROUP_3, "warn");
+    const g4 = groupRow("Итого: Прочее", STATUS_GROUP_4, "blue");
+    // подстраховка: любой статус вне 4 групп + Резерв (например, пустой статус при заполненной дате статуса) — не теряем из общей суммы
+    const knownStatuses = new Set([...STATUS_GROUP_1, ...STATUS_GROUP_RESERVE, ...STATUS_GROUP_2, ...STATUS_GROUP_3, ...STATUS_GROUP_4]);
+    const unknownStatuses = Object.keys(byStatus).filter(s=>!knownStatuses.has(s));
+    const g5 = unknownStatuses.length ? groupRow("Итого: Статус не распознан", unknownStatuses, "warn") : {html:"", sum:0};
+    const grandTotal = g1.sum + gR.sum + g2.sum + g3.sum + g4.sum + g5.sum;
+    statusTbl.innerHTML = '<thead><tr><th>Статус</th><th class="num">Кол-во</th></tr></thead><tbody>' +
+      g1.html + gR.html + g2.html + g3.html + g4.html + g5.html +
+      `<tr style="background:var(--blueprint-soft); font-weight:700; border-top:2px solid var(--line-strong);"><td>Всего за период</td><td class="num">${grandTotal}</td></tr>` +
+      "</tbody>";
+  }
+
+}
+
+/* ==================== ОТКАЗЫ ==================== */
+function refusalReasonTable(list, tblId, cntId, chartElId){
+  document.getElementById(cntId).textContent = list.length + " чел.";
+  const tbl = document.getElementById(tblId);
+  const byReason = {};
+  list.forEach(r=>{ const reason = r.refusalReason || "Причина не указана"; byReason[reason]=(byReason[reason]||0)+1; });
+  const entries = Object.entries(byReason).sort((a,b)=>b[1]-a[1]);
+  if(!list.length){
+    tbl.innerHTML = '<tr><td class="empty-state">Нет отказов по текущим условиям.</td></tr>';
+  } else {
+    tbl.innerHTML = '<thead><tr><th>Причина отказа</th><th class="num">Кол-во</th></tr></thead><tbody>' +
+      entries.map(([r,c])=>`<tr><td>${esc(r)}</td><td class="num">${c}</td></tr>`).join("") + "</tbody>";
+  }
+  if(chartElId){
+    renderBarChart(document.getElementById(chartElId), entries, "var(--warn)");
+  }
+}
+function renderRefusals(f){
+  const periodOk = periodIsSet();
+  // откликнулся в периоде И получил отказ в течение этого же периода
+  const resp = !periodOk ? [] : collectionData.filter(r=> matchesBaseFilters(r,f) && matchesPeriod(r, "response"));
+  const refused = resp.filter(r=> r.status==="Отказ" && matchesPeriod(r, "status"));
+  document.getElementById("m-ref-resp").textContent = resp.length;
+  document.getElementById("m-ref-refused").textContent = refused.length;
+  if(!periodOk){
+    document.getElementById("tbl-ref").innerHTML = '<tr><td class="empty-state">Выберите период выше.</td></tr>';
+    document.getElementById("cnt-ref").textContent = "";
+    document.getElementById("chart-ref").innerHTML = '<div class="empty-state">Выберите период выше.</div>';
+    return;
+  }
+  refusalReasonTable(refused, "tbl-ref", "cnt-ref", "chart-ref");
+}
+/* ==================== ЗАЯВКИ НА КОНТРОЛЕ (зависшие) ==================== */
+function renderStale(f){
+  if(!reportData.length){
+    document.getElementById("tbl-stale").innerHTML = '<tr><td class="empty-state">Файл «Отчет» не загружен — раздел недоступен.</td></tr>';
+    document.getElementById("m-stale-count").textContent = "0";
+    document.getElementById("cnt-stale").textContent = "";
+    return;
+  }
+  const today = new Date();
+  const rows = reportData.filter(r=>{
+    if(r.status!=="Открыта") return false;
+    if(!matchesBaseFilters(r,f)) return false;
+    const d = parseRUDate(r.dateReceived);
+    if(!d) return false;
+    const days = Math.floor((today - d) / (1000*60*60*24));
+    return days >= 60;
+  }).map(r=>{
+    const d = parseRUDate(r.dateReceived);
+    const days = Math.floor((today - d) / (1000*60*60*24));
+    return {...r, daysOpen: days};
+  }).sort((a,b)=>b.daysOpen-a.daysOpen);
+
+  document.getElementById("m-stale-count").textContent = rows.length;
+  document.getElementById("cnt-stale").textContent = rows.length + " шт.";
+  const tbl = document.getElementById("tbl-stale");
+  if(!rows.length){ tbl.innerHTML = '<tr><td class="empty-state">Зависших заявок нет по текущему фильтру — отлично.</td></tr>'; return; }
+  const sorted = applySorting("tbl-stale", rows, {
+    zayavkaNum: r=>r.zayavkaNum, op: r=>r.op, project: r=>r.project, position: r=>r.position,
+    dateReceived: r=>parseRUDate(r.dateReceived)||new Date(0), daysOpen: r=>r.daysOpen, ostalos: r=>r.ostalos??-Infinity
+  });
+  tbl.innerHTML = '<thead><tr>'+
+    sortableHeader("tbl-stale","№ заявки","zayavkaNum")+
+    sortableHeader("tbl-stale","ОП","op")+
+    sortableHeader("tbl-stale","Проект","project")+
+    sortableHeader("tbl-stale","Должность","position")+
+    sortableHeader("tbl-stale","Дата поступления","dateReceived")+
+    sortableHeader("tbl-stale","Дней открыта","daysOpen","num")+
+    sortableHeader("tbl-stale","Осталось закрыть","ostalos","num")+
+    '</tr></thead><tbody>' +
+    sorted.map(r=>`<tr>
+      <td>${esc(r.zayavkaNum)}</td>
+      <td>${esc(r.op)}</td>
+      <td>${esc(r.project)}</td>
+      <td>${esc(r.position)}</td>
+      <td>${esc(r.dateReceived)}</td>
+      <td class="num"><span class="badge warn">${r.daysOpen}</span></td>
+      <td class="num">${r.ostalos??""}</td>
+    </tr>`).join("") + "</tbody>";
+}
+
+/* ==================== ЗАЯВКИ БЕЗ ПРИВЯЗАННЫХ КАНДИДАТОВ ==================== */
+function renderUnlinkedZayavki(f){
+  if(!reportData.length){
+    document.getElementById("tbl-unlinked").innerHTML = '<tr><td class="empty-state">Файл «Отчет» не загружен — раздел недоступен.</td></tr>';
+    document.getElementById("m-unlinked-count").textContent = "0";
+    document.getElementById("cnt-unlinked").textContent = "";
+    return;
+  }
+  // номера заявок, на которые ссылается хотя бы один кандидат в "Сбор данных" (поле "Заявка")
+  const linkedZayavki = new Set();
+  collectionData.forEach(r=>{
+    if(!r.zayavka || /^без заявки$/i.test(r.zayavka)) return;
+    linkedZayavki.add(r.zayavka);
+  });
+  const rows = reportData.filter(r=> r.status==="Открыта" && matchesBaseFilters(r,f) && !linkedZayavki.has(r.zayavkaNum));
+
+  document.getElementById("m-unlinked-count").textContent = rows.length;
+  document.getElementById("cnt-unlinked").textContent = rows.length + " шт.";
+  const tbl = document.getElementById("tbl-unlinked");
+  if(!rows.length){ tbl.innerHTML = '<tr><td class="empty-state">У всех открытых заявок есть хотя бы один привязанный кандидат — отлично.</td></tr>'; return; }
+  const sorted = applySorting("tbl-unlinked", rows, {
+    zayavkaNum: r=>r.zayavkaNum, op: r=>r.op, project: r=>r.project, position: r=>r.position,
+    kolVacancy: r=>r.kolVacancy??-Infinity, dateReceived: r=>parseRUDate(r.dateReceived)||new Date(0)
+  });
+  tbl.innerHTML = '<thead><tr>'+
+    sortableHeader("tbl-unlinked","№ заявки","zayavkaNum")+
+    sortableHeader("tbl-unlinked","ОП","op")+
+    sortableHeader("tbl-unlinked","Проект","project")+
+    sortableHeader("tbl-unlinked","Должность","position")+
+    sortableHeader("tbl-unlinked","Вакансий","kolVacancy","num")+
+    sortableHeader("tbl-unlinked","Дата поступления","dateReceived")+
+    '</tr></thead><tbody>' +
+    sorted.map(r=>`<tr>
+      <td>${esc(r.zayavkaNum)}</td>
+      <td>${esc(r.op)}</td>
+      <td>${esc(r.project)}</td>
+      <td>${esc(r.position)}</td>
+      <td class="num">${r.kolVacancy??""}</td>
+      <td>${esc(r.dateReceived)}</td>
+    </tr>`).join("") + "</tbody>";
+}
+
+/* ==================== РАЗРЕШЕНИЕ ПЕРЕДАЧ МЕЖДУ РЕКРУТЕРАМИ ==================== */
+// Данные не хранят "кому передали" напрямую. Восстанавливаем по приоритету методов:
+// 1) комментарий отправителя называет рекрутера + есть его строка-результат по тому же ФИО
+// 2) совпадение ФИО + ОП + Проект + более поздняя дата + другой рекрутер (ровно 1 кандидат)
+// 3) совпадение телефона + более поздняя дата + другой рекрутер (ровно 1 кандидат)
+// Покрытие на реальных данных — around 77% передач (точная цифра всегда актуальна прямо в интерфейсе, см. блок "Эффективность передачи"). Остальное честно помечается как "не удалось установить".
+let transferResolutions = [];
+function escapeRegex(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+function findRecruitersInComment(comment, knownRecruiters, exclude){
+  if(!comment) return [];
+  return knownRecruiters.filter(rec => rec!==exclude && new RegExp(escapeRegex(rec)+"\\.?(?!\\w)").test(comment));
+}
+function resolveTransfers(){
+  const recruiterList = [...new Set(collectionData.map(r=>r.recruiter).filter(Boolean))];
+  const byFio = new Map();
+  collectionData.forEach(r=>{
+    if(!byFio.has(r.fio)) byFio.set(r.fio, []);
+    byFio.get(r.fio).push(r);
+  });
+  const byPhone = new Map();
+  collectionData.forEach(r=>{
+    if(r.phone){
+      if(!byPhone.has(r.phone)) byPhone.set(r.phone, []);
+      byPhone.get(r.phone).push(r);
+    }
+  });
+
+  const transfers = collectionData.filter(r=>r.status==="Передан др. рекрутеру");
+  const resolved = [];
+  transfers.forEach(sendRow=>{
+    const senderDt = parseRUDate(sendRow.statusDate);
+    if(!senderDt) return;
+    let receivingRow = null, method = null;
+
+    // Метод 1: комментарий
+    const mentioned = findRecruitersInComment(sendRow.comment, recruiterList, sendRow.recruiter);
+    if(mentioned.length===1){
+      const target = mentioned[0];
+      const candidates = (byFio.get(sendRow.fio)||[]).filter(r2=>{
+        const d = parseRUDate(r2.statusDate);
+        return r2.recruiter===target && d && d>senderDt;
+      });
+      if(candidates.length>=1){
+        candidates.sort((a,b)=> parseRUDate(a.statusDate) - parseRUDate(b.statusDate));
+        receivingRow = candidates[0]; method = "comment";
+      }
+    }
+    // Метод 2: ФИО+ОП+Проект+дата
+    if(!receivingRow){
+      const candidates = (byFio.get(sendRow.fio)||[]).filter(r2=>{
+        const d = parseRUDate(r2.statusDate);
+        return r2.op===sendRow.op && r2.project===sendRow.project && r2.recruiter!==sendRow.recruiter && d && d>senderDt;
+      });
+      if(candidates.length===1){ receivingRow = candidates[0]; method = "fio_op_proj"; }
+    }
+    // Метод 3: телефон
+    if(!receivingRow && sendRow.phone){
+      const candidates = (byPhone.get(sendRow.phone)||[]).filter(r2=>{
+        const d = parseRUDate(r2.statusDate);
+        return r2.recruiter!==sendRow.recruiter && d && d>senderDt;
+      });
+      const uniqRecruiters = [...new Set(candidates.map(r2=>r2.recruiter))];
+      if(uniqRecruiters.length===1){
+        candidates.sort((a,b)=> parseRUDate(a.statusDate) - parseRUDate(b.statusDate));
+        receivingRow = candidates[0]; method = "phone";
+      }
+    }
+
+    if(receivingRow){
+      resolved.push({from: sendRow.recruiter, to: receivingRow.recruiter, method, sendRow, receivingRow});
+    }
+  });
+  return resolved;
+}
+
+/* ==================== РЕКРУТЕРЫ ==================== */
+function renderRecruiters(f){
+  const tbl = document.getElementById("tbl-recruiters");
+  // берём всех кандидатов с рекрутером и статусом, без учёта самого фильтра "Рекрутер" (иначе таблица схлопнется в одну строку)
+  const fNoRecruiter = {...f, recruiter: ""};
+  const rows = collectionData.filter(r=> r.recruiter && r.status && matchesBaseFilters(r, fNoRecruiter) && (!f.year || r.knStatusYear===f.year));
+  document.getElementById("cnt-recruiters").textContent = "";
+  if(!rows.length){ tbl.innerHTML = '<tr><td class="empty-state">Нет данных по рекрутерам по текущему фильтру.</td></tr>'; return; }
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const byRecruiter = {};
+  rows.forEach(r=>{
+    const rec = r.recruiter;
+    if(!byRecruiter[rec]) byRecruiter[rec] = {total:0, active:0, success:0, refused:0, activeDaysSum:0, activeDaysCount:0, dateAnomalies:0};
+    const g = byRecruiter[rec];
+    g.total++;
+    if(ACTIVE_STATUSES.includes(r.status)) g.active++;
+    if(STATUS_GROUP_2.includes(r.status)) g.success++; // дошёл до финала: Куплен билет / Трудоустроен / на ОП
+    if(r.status==="Отказ") g.refused++;
+    if(ACTIVE_STATUSES.includes(r.status)){
+      const d = parseRUDate(r.statusDate);
+      if(d){
+        const days = Math.floor((today-d)/(1000*60*60*24));
+        if(days < 0){ g.dateAnomalies++; } // дата статуса в будущем — ошибка ввода, не считаем в среднее
+        else { g.activeDaysSum += days; g.activeDaysCount++; }
+      }
+    }
+  });
+
+  const list = Object.entries(byRecruiter).map(([rec,g])=>{
+    const decided = g.success + g.refused; // дошли до решённого исхода: финал ИЛИ отказ
+    return {
+      recruiter: rec,
+      total: g.total,
+      active: g.active,
+      decided,
+      conversion: decided ? (g.success/decided*100) : null,
+      avgStuckDays: g.activeDaysCount ? (g.activeDaysSum/g.activeDaysCount) : null,
+      dateAnomalies: g.dateAnomalies
+    };
+  });
+
+  document.getElementById("cnt-recruiters").textContent = list.length + " чел.";
+  const sorted = applySorting("tbl-recruiters", list, {
+    recruiter: r=>r.recruiter, total: r=>r.total, active: r=>r.active, decided: r=>r.decided,
+    conversion: r=>r.conversion??-Infinity,
+    avgStuckDays: r=>r.avgStuckDays??-Infinity, dateAnomalies: r=>r.dateAnomalies
+  });
+
+  tbl.innerHTML = '<thead><tr>'+
+    sortableHeader("tbl-recruiters","Рекрутер","recruiter")+
+    sortableHeader("tbl-recruiters","Всего кандидатов","total","num")+
+    sortableHeader("tbl-recruiters","В работе сейчас","active","num")+
+    sortableHeader("tbl-recruiters","Доходимость","decided","num")+
+    sortableHeader("tbl-recruiters","% Доходимости","conversion","num")+
+    sortableHeader("tbl-recruiters","Ср. дней без смены статуса","avgStuckDays","num")+
+    sortableHeader("tbl-recruiters","Даты в будущем","dateAnomalies","num")+
+    '</tr></thead><tbody>'+
+    sorted.map(r=>`<tr>
+      <td>${esc(r.recruiter)}</td>
+      <td class="num">${r.total}</td>
+      <td class="num">${r.active}</td>
+      <td class="num">${r.decided}</td>
+      <td class="num">${r.conversion===null ? "—" : r.conversion.toFixed(1)}</td>
+      <td class="num">${r.avgStuckDays===null ? "—" : r.avgStuckDays.toFixed(0)}</td>
+      <td class="num">${r.dateAnomalies>0 ? `<span class="badge warn">${r.dateAnomalies}</span>` : "0"}</td>
+    </tr>`).join("") + "</tbody>";
+}
+
+function renderTransferEffectiveness(f){
+  const fNoRecruiter = {...f, recruiter: ""};
+  const allTransfers = collectionData.filter(r=>r.status==="Передан др. рекрутеру" && matchesBaseFilters(r, fNoRecruiter) && (!f.year || r.knStatusYear===f.year));
+  const resolvedInScope = transferResolutions.filter(t=> matchesBaseFilters(t.sendRow, fNoRecruiter) && (!f.year || t.sendRow.knStatusYear===f.year));
+
+  document.getElementById("m-transfer-total").textContent = allTransfers.length;
+  document.getElementById("m-transfer-resolved").textContent = resolvedInScope.length;
+  const pct = allTransfers.length ? (resolvedInScope.length/allTransfers.length*100).toFixed(1) : "0";
+  document.getElementById("transfer-coverage-text").textContent = `${resolvedInScope.length} из ${allTransfers.length} (${pct}%)`;
+
+  const outcome = (row)=>{
+    if(row.status==="Трудоустроен" || row.status==="на ОП") return "success";
+    if(row.status==="Отказ") return "refused";
+    return "pending";
+  };
+
+  const receiverStats = {}, senderStats = {};
+  resolvedInScope.forEach(t=>{
+    const o = outcome(t.receivingRow);
+    if(!receiverStats[t.to]) receiverStats[t.to] = {success:0, refused:0, pending:0};
+    receiverStats[t.to][o]++;
+    if(!senderStats[t.from]) senderStats[t.from] = {success:0, refused:0, pending:0};
+    senderStats[t.from][o]++;
+  });
+
+  function renderSide(statsObj, tblId, cntId, totalLabel){
+    const tbl = document.getElementById(tblId);
+    const list = Object.entries(statsObj).map(([rec,s])=>{
+      const total = s.success+s.refused+s.pending;
+      const decided = s.success+s.refused;
+      return {recruiter:rec, total, success:s.success, refused:s.refused, pending:s.pending,
+        rate: decided ? (s.success/decided*100) : null};
+    });
+    document.getElementById(cntId).textContent = list.length + " чел.";
+    if(!list.length){ tbl.innerHTML = '<tr><td class="empty-state">Нет данных с установленным исходом по текущему фильтру.</td></tr>'; return; }
+    const sorted = applySorting(tblId, list, {
+      recruiter:r=>r.recruiter, total:r=>r.total, success:r=>r.success, refused:r=>r.refused,
+      pending:r=>r.pending, rate:r=>r.rate??-Infinity
+    });
+    tbl.innerHTML = '<thead><tr>'+
+      sortableHeader(tblId,"Рекрутер","recruiter")+
+      sortableHeader(tblId,totalLabel,"total","num")+
+      sortableHeader(tblId,"Из них трудоустроены","success","num")+
+      sortableHeader(tblId,"Из них отказались","refused","num")+
+      sortableHeader(tblId,"Ещё в работе","pending","num")+
+      sortableHeader(tblId,"% трудоустройства","rate","num")+
+      '</tr></thead><tbody>'+
+      sorted.map(r=>`<tr>
+        <td>${esc(r.recruiter)}</td>
+        <td class="num">${r.total}</td>
+        <td class="num">${r.success}</td>
+        <td class="num">${r.refused}</td>
+        <td class="num">${r.pending}</td>
+        <td class="num">${r.rate===null?"—":r.rate.toFixed(1)}</td>
+      </tr>`).join("") + "</tbody>";
+  }
+
+  renderSide(receiverStats, "tbl-transfer-receiver", "cnt-transfer-receiver", "Всего получено от других рекрутеров");
+  renderSide(senderStats, "tbl-transfer-sender", "cnt-transfer-sender", "Всего передано другим рекрутерам");
+}
+
+/* ==================== ДАШБОРД (воспроизводит старый дашборд руководителя) ==================== */
+function renderDashboard(f){
+  // Открытые заявки (с учётом фильтров, кроме Периода) — используются для связки кандидатов с текущей потребностью и для таблиц "Потребность"
+  const openZayavki = reportData.filter(r=> r.status==="Открыта" && matchesBaseFilters(r, f)); // открытая заявка видна всегда, независимо от года создания
+  // номера открытых заявок — для связки "Отправлено/На ОП" именно с текущей потребностью, а не со всей историей
+  const openZayavkaSet = new Set(openZayavki.map(r=>r.zayavkaNum));
+  const hasOpenZayavka = (r)=> r.zayavka && !/^без заявки$/i.test(r.zayavka) && openZayavkaSet.has(r.zayavka);
+
+  // заявка -> привязанные кандидаты (используется и для колец за 2026 год, и для диаграммы "закрыли/осталось" по ОП ниже)
+  const byZayavkaAll = new Map();
+  collectionData.forEach(r=>{
+    if(!r.zayavka || /^без заявки$/i.test(r.zayavka)) return;
+    if(!byZayavkaAll.has(r.zayavka)) byZayavkaAll.set(r.zayavka, []);
+    byZayavkaAll.get(r.zayavka).push(r);
+  });
+  const ostalosForZayavka = (r)=>{
+    const linked = byZayavkaAll.get(r.zayavkaNum) || [];
+    const kuplenBilet = linked.filter(c=>c.status==="Куплен билет").length;
+    const naOP = linked.filter(c=>NA_OP_3.includes(c.status)).length;
+    return Math.max(0, (r.kolVacancy||0) - kuplenBilet - naOP);
+  };
+
+  // Кольцо 1: заявки, поступившие в выбранном году (фильтр "Год" сверху; "Все" — весь период целиком) — сколько из них ещё открыто
+  const zayavkiScope = reportData.filter(r=>{
+    if(!matchesBaseFilters(r, f)) return false;
+    const d = parseRUDate(r.dateReceived);
+    if(!d) return false;
+    if(f.year && d.getFullYear()!==f.year) return false;
+    return true;
+  });
+  const totalZayavkiScope = zayavkiScope.length;
+  const openZayavkiScopeRows = zayavkiScope.filter(r=>r.status==="Открыта");
+  const openZayavkiScope = openZayavkiScopeRows.length;
+  const ringZayavkiPercent = totalZayavkiScope ? (openZayavkiScope/totalZayavkiScope*100) : 0;
+
+  // Кольцо 2: знаменатель — сумма "Кол-во вакансий" по ВСЕМ заявкам выбранного периода (любой статус).
+  // Числитель ("осталось закрыть", в центре) — считаем ТОЛЬКО по заявкам, которые сейчас в статусе "Открыта":
+  // закрытая заявка выбывает из остатка целиком, её кандидатов по статусам больше не пересчитываем
+  // (иначе задвоение/устаревшая привязка кандидатов, которые с той заявки уже давно ушли на другую).
+  const totalVacanciesScope = zayavkiScope.reduce((acc,r)=>acc+(r.kolVacancy||0), 0);
+  const remainingVacanciesScope = openZayavkiScopeRows.reduce((acc,r)=>acc+ostalosForZayavka(r), 0);
+  const ringVacanciesPercent = totalVacanciesScope ? (remainingVacanciesScope/totalVacanciesScope*100) : 0;
+
+  const inScope = collectionData.filter(r=> matchesBaseFilters(r, f) && (!f.year || r.knStatusYear===f.year));
+  // "В работе": группа STATUS_GROUP_1 БЕЗ статуса "на ЦТС" и БЕЗ тех, кто помечен каналом "через ЦТС" (подтверждено пользователем)
+  const inWork = inScope.filter(r=> STATUS_GROUP_1.includes(r.status) && r.status!=="на ЦТС").length; // через ЦТС снова учитывается, статус "на ЦТС" по-прежнему исключён
+  const cherezCts = inScope.filter(r=> STATUS_GROUP_1.includes(r.status) && r.throughCTS).length; // активные в воронке И помечены каналом
+
+  // Объём работы за ТЕКУЩУЮ календарную неделю (Пн-Вс) — снэпшот, не зависит от фильтра "Период" сверху,
+  // но учитывает остальные срезы (ОП/Проект/Вид/Категория/Рекрутер). Определения подтверждены директором:
+  // "Закрыто" — кандидат получил статус на ОП / Трудоустроен / Куплен билет на этой неделе (Перевод не считаем).
+  // "Открыто" — заявки, которые сейчас в статусе "Открыта" и пришли (Дата поступления заявки) на этой неделе; суммируем "Кол-во вакансий".
+  const CLOSED_THIS_WEEK_STATUSES = ["на ОП","Трудоустроен","Куплен билет"];
+  const nowKN = isoWeekParts(new Date());
+  const closedThisWeek = collectionData.filter(r=>
+    CLOSED_THIS_WEEK_STATUSES.includes(r.status) && matchesBaseFilters(r, f) &&
+    r.knStatus===nowKN.week && r.knStatusYear===nowKN.year
+  ).length;
+  const openedThisWeek = reportData.filter(r=>{
+    if(r.status!=="Открыта" || !matchesBaseFilters(r, f)) return false;
+    const d = parseRUDate(r.dateReceived);
+    if(!d) return false;
+    const kn = isoWeekParts(d);
+    return kn.week===nowKN.week && kn.year===nowKN.year;
+  }).reduce((acc,r)=>acc+(r.kolVacancy||0), 0);
+  document.getElementById("dash-vacancies-delta").innerHTML =
+    `<span class="dyn-open">+${openedThisWeek} открыто вакансий</span>` +
+    `<span class="dyn-sep">·</span>` +
+    `<span class="dyn-closed">−${closedThisWeek} закрыто вакансий</span>`;
+  document.getElementById("dash-week-label").textContent = `(КН ${nowKN.week})`;
+  document.getElementById("dash-cherez-cts").textContent = cherezCts;
+  document.getElementById("dash-inwork").textContent = inWork;
+  renderRing("ring-percent", ringZayavkiPercent, "var(--blueprint)", String(openZayavkiScope));
+  document.getElementById("ring-percent-total").textContent = totalZayavkiScope;
+  renderRing("ring-dohodimost", ringVacanciesPercent, "var(--blueprint)", String(remainingVacanciesScope));
+  document.getElementById("ring-dohodimost-total").textContent = totalVacanciesScope;
+
+  const countStatus = (status)=> inScope.filter(r=>r.status===status).length;
+  // "+N за неделю" — сколько кандидатов вошли в этот статус на ТЕКУЩЕЙ календарной неделе (knStatus = дата статуса)
+  const weeklyDelta = (matchFn)=> collectionData.filter(r=> matchesBaseFilters(r, f) && matchFn(r) && r.knStatus===nowKN.week && r.knStatusYear===nowKN.year).length;
+  const renderDelta = (elId, count)=>{
+    const el = document.getElementById(elId);
+    if(!el) return;
+    if(count>0){ el.textContent = `+${count} за нед.`; el.className = "delta-lbl up"; }
+    else { el.textContent = "+0 за нед."; el.className = "delta-lbl zero"; }
+  };
+  document.getElementById("dash-soglasovanie").textContent = countStatus("Согласование");
+  document.getElementById("dash-sbordok").textContent = countStatus("Сбор документов");
+  document.getElementById("dash-sb").textContent = countStatus("Служба безопасности");
+  document.getElementById("dash-medosmotr").textContent = countStatus("Медосмотр");
+  document.getElementById("dash-offer").textContent = countStatus("Оффер");
+  document.getElementById("dash-mobilizatsiya").textContent = countStatus("Мобилизация");
+  document.getElementById("dash-cts").textContent = countStatus("на ЦТС");
+  document.getElementById("dash-kuplen-bilet").textContent = countStatus("Куплен билет");
+  document.getElementById("dash-na-op").textContent = countStatus("на ОП");
+  document.getElementById("dash-trudoustroen").textContent = countStatus("Трудоустроен");
+  document.getElementById("dash-rezerv").textContent = countStatus("Резерв");
+  document.getElementById("dash-otkaz").textContent = countStatus("Отказ");
+
+  renderDelta("delta-soglasovanie", weeklyDelta(r=>r.status==="Согласование"));
+  renderDelta("delta-sbordok", weeklyDelta(r=>r.status==="Сбор документов"));
+  renderDelta("delta-sb", weeklyDelta(r=>r.status==="Служба безопасности"));
+  renderDelta("delta-medosmotr", weeklyDelta(r=>r.status==="Медосмотр"));
+  renderDelta("delta-offer", weeklyDelta(r=>r.status==="Оффер"));
+  renderDelta("delta-mobilizatsiya", weeklyDelta(r=>r.status==="Мобилизация"));
+  renderDelta("delta-cherez-cts", weeklyDelta(r=> STATUS_GROUP_1.includes(r.status) && r.throughCTS));
+  renderDelta("delta-kuplen-bilet", weeklyDelta(r=>r.status==="Куплен билет"));
+  renderDelta("delta-cts", weeklyDelta(r=>r.status==="на ЦТС"));
+  renderDelta("delta-na-op", weeklyDelta(r=>r.status==="на ОП"));
+  renderDelta("delta-trudoustroen", weeklyDelta(r=>r.status==="Трудоустроен"));
+  renderDelta("delta-rezerv", weeklyDelta(r=>r.status==="Резерв"));
+  renderDelta("delta-otkaz", weeklyDelta(r=>r.status==="Отказ"));
+
+  // Потребность по заявкам: строки - категория, столбцы - ОП, значение - сумма Кол-во вакансий (только открытые заявки)
+  const needRows = openZayavki.filter(r=>r.category);
+  const needTbl = document.getElementById("tbl-dash-need");
+  document.getElementById("cnt-dash-need").textContent = needRows.length + " заявок";
+  if(!needRows.length){
+    needTbl.innerHTML = '<tr><td class="empty-state">Нет данных по открытым заявкам с указанной категорией.</td></tr>';
+    document.getElementById("chart-dash-need-op").innerHTML = '<div class="empty-state">Нет данных для диаграммы.</div>';
+    document.getElementById("tbl-dash-cat").innerHTML = '<tr><td class="empty-state">Нет данных.</td></tr>';
+    document.getElementById("cnt-dash-cat").textContent = "";
+    return;
+  }
+  const categories = [...new Set(needRows.map(r=>r.category))].sort();
+  const ops = [...new Set(needRows.map(r=>r.op).filter(Boolean))].sort();
+  const grid = {};
+  categories.forEach(c=>{ grid[c] = {}; ops.forEach(o=>grid[c][o]=0); });
+  needRows.forEach(r=>{
+    if(!r.op) return;
+    grid[r.category][r.op] = (grid[r.category][r.op]||0) + (r.kolVacancy||0);
+  });
+  let needHtml = '<thead><tr><th>Категория</th>' + ops.map(o=>`<th class="num">${esc(o)}</th>`).join("") + '<th class="num">Итого</th></tr></thead><tbody>';
+  const opTotals = {}; ops.forEach(o=>opTotals[o]=0);
+  categories.forEach(c=>{
+    let rowTotal = 0;
+    const cells = ops.map(o=>{ const v = grid[c][o]||0; rowTotal+=v; opTotals[o]+=v; return `<td class="num">${v||""}</td>`; }).join("");
+    needHtml += `<tr><td>${esc(c)}</td>${cells}<td class="num"><b>${rowTotal}</b></td></tr>`;
+  });
+  const grandTotal = Object.values(opTotals).reduce((a,b)=>a+b,0);
+  needHtml += `<tr style="background:var(--blueprint-soft); font-weight:700;"><td>Итого</td>` + ops.map(o=>`<td class="num">${opTotals[o]}</td>`).join("") + `<td class="num">${grandTotal}</td></tr>`;
+  needHtml += "</tbody>";
+  needTbl.innerHTML = needHtml;
+
+  // "Закрыли" для диаграммы: Трудоустроен / Перевод / на ОП / Куплен билет — все, кто уже фактически отправлен (по кандидатам, привязанным к этой же открытой заявке)
+  const CLOSED_STATUSES = ["Трудоустроен","Перевод","на ОП","Куплен билет"];
+  const closedByOp = {}; ops.forEach(o=>closedByOp[o]=0);
+  needRows.forEach(r=>{
+    if(!r.op) return;
+    const linked = byZayavkaAll.get(r.zayavkaNum) || [];
+    closedByOp[r.op] += linked.filter(c=>CLOSED_STATUSES.includes(c.status)).length;
+  });
+
+  const chartEntries = ops.map(o=>({label:o, total:opTotals[o], closed:Math.min(closedByOp[o], opTotals[o])})).sort((a,b)=>b.total-a.total);
+  renderStackedColumnChart(document.getElementById("chart-dash-need-op"), chartEntries);
+
+  // Потребность по категориям: Вакансий / На ОП / Осталось / В работе
+  const catTbl = document.getElementById("tbl-dash-cat");
+  const catOrder = ["ИТР","ИТР-Лин.","РОП","РОП-Сварщик"].filter(c=>categories.includes(c));
+  const catFinal = catOrder.length ? catOrder : categories;
+  document.getElementById("cnt-dash-cat").textContent = catFinal.length + " категорий";
+
+  const catStats = catFinal.map(c=>{
+    const vac = needRows.filter(r=>r.category===c).reduce((a,r)=>a+(r.kolVacancy||0),0);
+    const naOP = inScope.filter(r=>r.category===c && STATUS_GROUP_2.includes(r.status) && hasOpenZayavka(r)).length;
+    const ostalos = vac - naOP;
+    const vRabote = inScope.filter(r=>r.category===c && STATUS_GROUP_1.includes(r.status)).length;
+    return {category:c, vac, naOP, ostalos, vRabote};
+  });
+
+  catTbl.innerHTML = '<thead><tr><th>Категория</th><th class="num">Вакансий</th><th class="num">На ОП</th><th class="num">Осталось</th><th class="num">В работе</th></tr></thead><tbody>' +
+    catStats.map(s=>`<tr>
+      <td>${esc(s.category)}</td>
+      <td class="num">${s.vac}</td>
+      <td class="num">${s.naOP}</td>
+      <td class="num">${s.ostalos}</td>
+      <td class="num">${s.vRabote}</td>
+    </tr>`).join("") + "</tbody>";
+}
+</script>
+</body>
+</html>
