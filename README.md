@@ -2,6 +2,7 @@
 Recruitment Department: Candidate and Application Tracker A single-file HTML dashboard for the recruitment department. It replaces manual reporting in Excel or Google Sheets: an analyst simply loads two CSV exports directly into the browser to generate an interactive dashboard suitable for both day
 
 Зачем это существует
+
 Отдел подбора персонала ведёт учёт кандидатов и заявок на подбор в Google Sheets с ручными формулами. Это медленно, легко ломается и не масштабируется на ~26 000 строк истории кандидатов. Этот инструмент читает те же исходные данные (два CSV-экспорта) и строит из них живой, интерактивный, фильтруемый дашборд — без единой ручной формулы в самих данных.
 
 Стек
@@ -23,6 +24,7 @@ SheetJS (xlsx) — экспорт таблиц в .xlsx
 Названия столбцов должны совпадать буквально (с учётом пробелов и регистра) — парсер их не подбирает по смыслу.
 
 Что внутри — по вкладкам
+
 Дашборд
 Снэпшот на сегодня, не зависит от фильтра «Период». Сверху вниз:
 Два кольцевых индикатора — «Открыто заявок из N» и «Осталось закрыть вакансий из N» — оба следуют за фильтром «Год» (конкретный год или сумма по всем годам).
